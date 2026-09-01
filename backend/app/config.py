@@ -7,9 +7,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="CB_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_prefix="QC_", env_file=".env", extra="ignore")
 
-    app_name: str = "Code Butler API"
+    app_name: str = "QuickClass API"
     api_prefix: str = "/api/v1"
     env: str = "development"
 

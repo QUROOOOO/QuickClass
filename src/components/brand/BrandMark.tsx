@@ -5,26 +5,41 @@ interface BrandMarkProps {
 }
 
 /**
- * CODE BUTLER mark — geometric "G" aperture.
- *
- * A bold circular form with a deliberate opening on the right,
- * a flat diagonal inner cut forming the bar, and a small accent
- * bead seated at the upper-right terminal. Pure geometry, crisp
- * at every size, reads in #000000 and #F0F0F0.
+ * QUICKCLASS mark — graduation cap / open book.
+ * Clean geometric mark: a stylized open book with a graduation
+ * cap silhouette, signaling learning and mastery.
  */
 export function BrandMark({ className }: BrandMarkProps) {
   return (
     <svg viewBox="0 0 40 40" fill="none" aria-hidden="true" className={className}>
-      {/* ring — open on the right, sweeping from the upper terminal over the top */}
+      {/* graduation cap — top diamond */}
       <path
-        d="M25.9 13.6 A 10.4 10.4 0 1 0 29.6 24.1"
-        stroke="currentColor"
-        strokeWidth="6.2"
+        d="M20 6L4 15l16 9 16-9L20 6z"
+        fill="currentColor"
       />
-      {/* bar — flat top, single diagonal cut on its left end */}
-      <path d="M33.4 17.7 L17.9 17.7 L14.2 23.9 L33.4 23.9 Z" fill="currentColor" />
-      {/* accent bead — upper-right terminal */}
-      <circle cx="27.5" cy="11.4" r="2.75" fill="#ED6A2F" />
+      {/* cap tassel line */}
+      <path
+        d="M32 15v8"
+        stroke="#ED6A2F"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      {/* tassel dot */}
+      <circle cx="32" cy="25" r="1.5" fill="#ED6A2F" />
+      {/* book pages below */}
+      <path
+        d="M8 18v10c0 2 5.4 4 12 4s12-2 12-4V18"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      {/* center spine */}
+      <path
+        d="M20 18v14"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }

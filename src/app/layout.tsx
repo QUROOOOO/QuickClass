@@ -5,12 +5,11 @@ import "@/styles/globals.css";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { MotionProvider } from "@/components/MotionProvider";
-import { CurrentProvider } from "@/components/current/CodeCurrentContext";
 
 const themeInitScript = `
 (function () {
   try {
-    var t = localStorage.getItem('cb-theme') || 'system';
+    var t = localStorage.getItem('qc-theme') || 'system';
     var dark = t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
     var root = document.documentElement;
     root.classList.toggle('dark', dark);
@@ -21,9 +20,9 @@ const themeInitScript = `
 
 export const metadata: Metadata = {
   icons: { icon: "/favicon.svg" },
-  title: "Code Butler — A calmer way to build software",
+  title: "QuickClass — Your AI-Powered Study Companion",
   description:
-    "Give Code Butler an idea. Watch an autonomous software engineer understand it, plan it, and build it — under your control at every step.",
+    "Upload your course materials. QuickClass transforms them into an intelligent tutor that teaches, quizzes, and adapts to how you learn.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -44,9 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       >
         <AuthProvider>
           <ThemeProvider>
-            <CurrentProvider>
-              <MotionProvider>{children}</MotionProvider>
-            </CurrentProvider>
+            <MotionProvider>{children}</MotionProvider>
           </ThemeProvider>
         </AuthProvider>
       </body>

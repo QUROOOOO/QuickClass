@@ -6,6 +6,7 @@ import { BrandMark } from "@/components/brand/BrandMark";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import {
+  IconHome,
   IconProjects,
   IconChevronLeft,
   IconUser,
@@ -14,7 +15,7 @@ import {
   IconLogout,
 } from "@/components/ui/Icon";
 
-export type NavView = "home" | "projects" | "settings";
+export type NavView = "home" | "classes" | "settings";
 
 interface SidebarProps {
   current: NavView;
@@ -126,14 +127,14 @@ export function Sidebar({ current, onNavigate, collapsed, onToggle }: SidebarPro
               if (collapsed) onToggle();
               else goHome();
             }}
-            aria-label={collapsed ? "Code Butler — expand and go home" : "Code Butler — home"}
+            aria-label={collapsed ? "QuickClass — expand and go home" : "QuickClass — home"}
             aria-current={current === "home" ? "page" : undefined}
             className={`control flex items-center gap-2.5 h-10 min-w-0 ${collapsed ? "mx-auto px-1" : "px-1.5"}`}
           >
             <BrandMark className="w-[22px] h-[22px] shrink-0 text-text-primary" />
             {!collapsed && (
               <span className="text-[13px] font-semibold tracking-tight whitespace-nowrap text-text-primary">
-                Code Butler
+                QuickClass
               </span>
             )}
           </button>
@@ -158,7 +159,7 @@ export function Sidebar({ current, onNavigate, collapsed, onToggle }: SidebarPro
         </div>
       </div>
 
-      {/* Navigation — Projects only */}
+      {/* Navigation — Dashboard, Classes */}
       <div className="flex-1 overflow-hidden px-2.5 py-1 space-y-0.5">
         <button
           type="button"
@@ -168,20 +169,44 @@ export function Sidebar({ current, onNavigate, collapsed, onToggle }: SidebarPro
               onToggle();
               return;
             }
-            onNavigate("projects");
+            onNavigate("home");
           }}
-          aria-current={current === "projects" ? "page" : undefined}
-          title={collapsed ? "Projects" : undefined}
+          aria-current={current === "home" ? "page" : undefined}
+          title={collapsed ? "Dashboard" : undefined}
           className={`control w-full flex items-center gap-3 px-2.5 py-2 text-[13px]
             ${collapsed ? "justify-center px-0" : ""}
             ${
-              current === "projects"
+              current === "home"
+                ? "bg-ink-soft-strong text-text-primary font-medium"
+                : "text-text-secondary hover:text-text-primary hover:bg-ink-soft"
+            }`}
+        >
+          <IconHome size={17} />
+          {!collapsed && <span className="truncate flex-1 text-left">Dashboard</span>}
+        </button>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (collapsed) {
+              onToggle();
+              return;
+            }
+            onNavigate("classes");
+          }}
+          aria-current={current === "classes" ? "page" : undefined}
+          title={collapsed ? "Classes" : undefined}
+          className={`control w-full flex items-center gap-3 px-2.5 py-2 text-[13px]
+            ${collapsed ? "justify-center px-0" : ""}
+            ${
+              current === "classes"
                 ? "bg-ink-soft-strong text-text-primary font-medium"
                 : "text-text-secondary hover:text-text-primary hover:bg-ink-soft"
             }`}
         >
           <IconProjects size={17} />
-          {!collapsed && <span className="truncate flex-1 text-left">Projects</span>}
+          {!collapsed && <span className="truncate flex-1 text-left">Classes</span>}
         </button>
       </div>
 

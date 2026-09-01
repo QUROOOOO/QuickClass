@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { AuthCard, Field, inputClass } from "@/components/auth/AuthCard";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { Button } from "@/components/ui/Button";
-import { setAuthFieldState } from "@/components/background/ComputationalField";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -25,18 +24,14 @@ export default function LoginPage() {
     setInfo(null);
     if (!email.trim() || !password) {
       setError("Enter your email and password.");
-      setAuthFieldState("error");
       return;
     }
     setBusy(true);
-    setAuthFieldState("submit");
     try {
       await adapter.signIn(email.trim(), password, remember);
-      setAuthFieldState("success");
       router.push("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "We couldn't sign you in. Check your details and try again.");
-      setAuthFieldState("error");
     } finally {
       setBusy(false);
     }
@@ -58,7 +53,7 @@ export default function LoginPage() {
       subtitle="Sign in to continue where you left off."
       footer={
         <>
-          New to Code Butler?{" "}
+          New to QuickClass?{" "}
           <Link href="/signup" className="text-accent-strong font-medium hover:underline">
             Create an account
           </Link>
@@ -78,9 +73,9 @@ export default function LoginPage() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            onFocus={() => setAuthFieldState("focus")}
-            onBlur={() => setAuthFieldState("idle")}
-            onKeyDown={() => setAuthFieldState("typing")}
+            onFocus={() => {}}
+            onBlur={() => {}}
+            onKeyDown={() => {}}
             placeholder="you@example.com"
             autoComplete="email"
             className={inputClass}

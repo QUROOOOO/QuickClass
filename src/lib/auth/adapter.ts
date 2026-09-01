@@ -5,7 +5,7 @@
  * `createAuthAdapter()` returns the best adapter for the environment:
  *
  *  - When `NEXT_PUBLIC_API_URL` is set → BackendAuthAdapter, which talks
- *    to the Code Butler API (FastAPI; Firebase-ready — the backend holds
+ *    to the QuickClass API (FastAPI; Firebase-ready — the backend holds
  *    the Firebase Admin SDK connection).
  *  - Otherwise → MemoryAuthAdapter, a local demo that never touches the
  *    network. It reports `configured: false` so the UI can stay honest
@@ -88,7 +88,7 @@ export class MemoryAuthAdapter implements AuthAdapter {
 }
 
 /* ------------------------------------------------------------------ */
-/* Backend adapter — real HTTP to the Code Butler API                  */
+/* Backend adapter — real HTTP to the QuickClass API                  */
 /* ------------------------------------------------------------------ */
 
 export class BackendAuthAdapter implements AuthAdapter {

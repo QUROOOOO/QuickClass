@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { AuthCard, Field, inputClass } from "@/components/auth/AuthCard";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { Button } from "@/components/ui/Button";
-import { setAuthFieldState } from "@/components/background/ComputationalField";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -24,28 +23,22 @@ export default function SignupPage() {
     setError(null);
     if (!name.trim() || !email.trim() || !password) {
       setError("Fill in your name, email and password.");
-      setAuthFieldState("error");
       return;
     }
     if (password.length < 8) {
       setError("Use at least 8 characters for your password.");
-      setAuthFieldState("error");
       return;
     }
     if (password !== confirm) {
       setError("Passwords don't match.");
-      setAuthFieldState("error");
       return;
     }
     setBusy(true);
-    setAuthFieldState("submit");
     try {
       await adapter.signUp(name.trim(), email.trim(), password);
-      setAuthFieldState("success");
       router.push("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "We couldn't create your account. Try again.");
-      setAuthFieldState("error");
     } finally {
       setBusy(false);
     }
@@ -54,7 +47,7 @@ export default function SignupPage() {
   return (
     <AuthCard
       title="Create your account"
-      subtitle="A calmer way to build software. No credit card, no clutter."
+      subtitle="Upload your materials. Get an AI tutor that adapts to how you learn."
       footer={
         <>
           Already have an account?{" "}
@@ -76,9 +69,9 @@ export default function SignupPage() {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            onFocus={() => setAuthFieldState("focus")}
-            onBlur={() => setAuthFieldState("idle")}
-            onKeyDown={() => setAuthFieldState("typing")}
+            onFocus={() => {}}
+            onBlur={() => {}}
+            onKeyDown={() => {}}
             placeholder="Ada Lovelace"
             autoComplete="name"
             className={inputClass}

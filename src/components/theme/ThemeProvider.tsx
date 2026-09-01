@@ -44,9 +44,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const storedTheme = (localStorage.getItem("cb-theme") as Theme) || "system";
-    const storedMotion = localStorage.getItem("cb-motion") === "reduced";
-    const storedTransparency = localStorage.getItem("cb-transparency") === "reduced";
+    const storedTheme = (localStorage.getItem("qc-theme") as Theme) || "system";
+    const storedMotion = localStorage.getItem("qc-motion") === "reduced";
+    const storedTransparency = localStorage.getItem("qc-transparency") === "reduced";
     setThemeState(storedTheme);
     setReduceMotionState(storedMotion);
     setReduceTransparencyState(storedTransparency);
@@ -68,7 +68,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setTheme = useCallback(
     (t: Theme) => {
       setThemeState(t);
-      localStorage.setItem("cb-theme", t);
+      localStorage.setItem("qc-theme", t);
       apply(t);
     },
     [apply]
@@ -76,13 +76,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const setReduceMotion = useCallback((v: boolean) => {
     setReduceMotionState(v);
-    localStorage.setItem("cb-motion", v ? "reduced" : "full");
+    localStorage.setItem("qc-motion", v ? "reduced" : "full");
     document.documentElement.classList.toggle("motion-reduced", v);
   }, []);
 
   const setReduceTransparency = useCallback((v: boolean) => {
     setReduceTransparencyState(v);
-    localStorage.setItem("cb-transparency", v ? "reduced" : "full");
+    localStorage.setItem("qc-transparency", v ? "reduced" : "full");
     document.documentElement.classList.toggle("reduce-transparency", v);
   }, []);
 

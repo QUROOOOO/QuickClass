@@ -4,7 +4,7 @@ import { useState, useEffect, type ReactNode } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sidebar, type NavView } from "./Sidebar";
 import { BrandMark } from "@/components/brand/BrandMark";
-import { IconProjects, IconSettings } from "@/components/ui/Icon";
+import { IconHome, IconProjects, IconSettings } from "@/components/ui/Icon";
 
 interface AppShellProps {
   current: NavView;
@@ -40,9 +40,9 @@ export function AppShell({ current, onNavigate, rightRail, children }: AppShellP
     <div className="app-shell bg-outer p-0 sm:p-2">
       {/* Mobile top bar — brand returns home */}
       <div className="sm:hidden flex items-center gap-2 px-4 h-12 bg-outer shrink-0">
-        <button onClick={() => onNavigate("home")} aria-label="Code Butler — home" className="control flex items-center gap-2">
+        <button onClick={() => onNavigate("home")} aria-label="QuickClass — home" className="control flex items-center gap-2">
           <BrandMark className="w-5 h-5 text-text-primary" />
-          <span className="text-[13px] font-semibold tracking-tight text-text-primary">Code Butler</span>
+          <span className="text-[13px] font-semibold tracking-tight text-text-primary">QuickClass</span>
         </button>
       </div>
 
@@ -89,7 +89,8 @@ function BottomNav({
   onNavigate: (v: NavView) => void;
 }) {
   const items: { id: NavView; label: string; icon: (p: { size?: number }) => JSX.Element }[] = [
-    { id: "projects", label: "Projects", icon: IconProjects },
+    { id: "home", label: "Dashboard", icon: IconHome },
+    { id: "classes", label: "Classes", icon: IconProjects },
     { id: "settings", label: "Settings", icon: IconSettings },
   ];
   return (

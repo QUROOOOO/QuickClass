@@ -3,12 +3,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { BrandMark } from "@/components/brand/BrandMark";
-import { ComputationalField } from "@/components/background/ComputationalField";
-
-/**
- * Auth surfaces — soft-spatial, standalone (no app chrome).
- * Rendered on the outer environment as a centered surface.
- */
 export function AuthCard({
   title,
   subtitle,
@@ -22,10 +16,9 @@ export function AuthCard({
 }) {
   return (
     <div className="relative min-h-dvh grid place-items-center px-4 py-10 bg-outer overflow-y-auto">
-      <ComputationalField />
       <div className="relative z-10 w-full max-w-[400px]">
         <div className="flex flex-col items-center mb-8">
-          <Link href="/" aria-label="Code Butler — home" className="grid place-items-center w-11 h-11 rounded-[14px] bg-ink-soft-strong mb-4">
+          <Link href="/" aria-label="QuickClass — home" className="grid place-items-center w-11 h-11 rounded-[14px] bg-ink-soft-strong mb-4">
             <BrandMark className="w-6 h-6 text-text-primary" />
           </Link>
           <h1 className="display text-[22px] tracking-tight text-center">{title}</h1>
