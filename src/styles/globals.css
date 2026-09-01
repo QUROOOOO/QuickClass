@@ -1,0 +1,415 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  CODE BUTLER — Soft Spatial Instrument.
+  Two primary colors only: #000000 and #F0F0F0.
+  All hierarchy comes from opacity steps of those two,
+  surface separation, typography and spacing.
+
+  page (#F0F0F0 / #000000)
+  → floating glass sidebar
+  → workspace (the ONLY scroll region)
+  → soft surfaces + tactile controls
+*/
+
+:root {
+  /* environment */
+  --page: #f0f0f0;
+  --surface-raised: rgba(255, 255, 255, 0.72);
+  --surface-solid: #ffffff;
+  --surface-tint: rgba(0, 0, 0, 0.035);
+  --sidebar-bg: rgba(255, 255, 255, 0.66);
+  --popover-bg: rgba(255, 255, 255, 0.82);
+
+  /* text — black at opacities */
+  --text-primary: rgba(0, 0, 0, 0.92);
+  --text-secondary: rgba(0, 0, 0, 0.55);
+  --text-faint: rgba(0, 0, 0, 0.34);
+
+  /* borders — black at opacities */
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.16);
+
+  /* ink — the action color is simply black */
+  --ink: rgba(0, 0, 0, 0.9);
+  --ink-strong: #000000;
+  --ink-soft: rgba(0, 0, 0, 0.06);
+  --ink-soft-strong: rgba(0, 0, 0, 0.11);
+
+  /* semantic — internal only, never identity */
+  --success: #2f7a4d;
+  --warning: #8a6420;
+  --error: #b03a34;
+
+  /* depth — soft, physical */
+  --shadow-rest: 0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 28px rgba(0, 0, 0, 0.07);
+  --shadow-lifted: 0 2px 6px rgba(0, 0, 0, 0.05), 0 20px 52px rgba(0, 0, 0, 0.12);
+  --shadow-active: 0 1px 2px rgba(0, 0, 0, 0.1), 0 3px 10px rgba(0, 0, 0, 0.12);
+
+  /* radii */
+  --radius-shell: 18px;
+  --radius-panel: 20px;
+  --radius-card: 16px;
+  --radius-control: 10px;
+  --radius-full: 999px;
+
+  /* glass — floating chrome only */
+  --glass-border: rgba(0, 0, 0, 0.07);
+  --glass-blur: 22px;
+
+  /* layout */
+  --sidebar-width: 236px;
+  --sidebar-collapsed: 76px;
+}
+
+.dark {
+  --page: #000000;
+  --surface-raised: rgba(240, 240, 240, 0.045);
+  --surface-solid: #101010;
+  --surface-tint: rgba(240, 240, 240, 0.04);
+  --sidebar-bg: rgba(240, 240, 240, 0.045);
+  --popover-bg: rgba(18, 18, 18, 0.86);
+
+  /* text — #F0F0F0 at opacities */
+  --text-primary: rgba(240, 240, 240, 0.92);
+  --text-secondary: rgba(240, 240, 240, 0.55);
+  --text-faint: rgba(240, 240, 240, 0.32);
+
+  /* borders — white at opacities */
+  --border: rgba(240, 240, 240, 0.09);
+  --border-strong: rgba(240, 240, 240, 0.2);
+
+  /* ink — the action color is #F0F0F0 */
+  --ink: rgba(240, 240, 240, 0.9);
+  --ink-strong: #f0f0f0;
+  --ink-soft: rgba(240, 240, 240, 0.08);
+  --ink-soft-strong: rgba(240, 240, 240, 0.14);
+
+  --success: #58a97e;
+  --warning: #c9953f;
+  --error: #d96a63;
+
+  --shadow-rest: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.45);
+  --shadow-lifted: 0 2px 8px rgba(0, 0, 0, 0.55), 0 22px 56px rgba(0, 0, 0, 0.6);
+  --shadow-active: 0 1px 2px rgba(0, 0, 0, 0.5), 0 3px 12px rgba(0, 0, 0, 0.5);
+
+  --glass-border: rgba(240, 240, 240, 0.1);
+  --glass-blur: 24px;
+}
+
+/* legacy aliases — resolved to the neutral system */
+:root,
+.dark {
+  --accent: var(--ink);
+  --accent-strong: var(--ink-strong);
+  --accent-soft: var(--ink-soft);
+  --accent-dark: var(--text-primary);
+  --outer: var(--page);
+  --shell: var(--page);
+  --sidebar: transparent;
+  --sidebar-elevated: var(--surface-tint);
+  --surface-primary: var(--surface-solid);
+  --surface-secondary: var(--surface-tint);
+  --surface-elevated: var(--surface-raised);
+  --glass-bg: var(--popover-bg);
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--page);
+  color: var(--text-primary);
+  font-family: var(--font-geist);
+  overflow: hidden;
+  transition: background-color 220ms ease, color 220ms ease;
+}
+
+/* ---------- scroll architecture ----------
+   body: hidden — the app owns the viewport.
+   main-workspace: the ONLY vertical scroll region. */
+.app-shell {
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+}
+
+.main-workspace {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+
+.main-workspace::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---------- surfaces ---------- */
+.shell-surface {
+  background: var(--page);
+  border-radius: var(--radius-shell);
+}
+
+.surface-primary {
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+.dark .surface-primary {
+  background: var(--surface-raised);
+}
+
+.surface-panel {
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+}
+.dark .surface-panel {
+  background: var(--surface-raised);
+}
+
+.surface-elevated {
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+.dark .surface-elevated {
+  background: var(--surface-raised);
+}
+
+/* writing surface — the composer */
+.writing-surface {
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-lifted);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+.dark .writing-surface {
+  background: var(--surface-raised);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.writing-surface:focus-within {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-lifted), 0 0 0 4px var(--ink-soft);
+}
+
+/* context strip — thin, expands in place */
+.context-strip {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.context-strip:focus-within {
+  background: var(--surface-tint);
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 3px var(--ink-soft);
+}
+
+/* ---------- glass — floating chrome only ---------- */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-soft);
+}
+
+/* Sidebar is application chrome — ALWAYS fully opaque. No backdrop-filter,
+   no alpha. It must sit visually above the PixelField with zero bleed-through,
+   regardless of theme, reduced-transparency setting, or PixelField activity. */
+.sidebar-glass {
+  background: var(--surface-solid);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-rest);
+  position: relative;
+  z-index: 20;
+}
+
+.popover-glass {
+  background: var(--popover-bg);
+  backdrop-filter: blur(calc(var(--glass-blur) * 1.2));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.2));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-lifted);
+}
+
+/* ---------- typography ----------
+   One grotesk for everything. Hierarchy through scale/weight/
+   tracking — never through a second display face. */
+.display {
+  font-family: var(--font-geist);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
+.label-caps {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.label-micro {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* monospace — technical metadata only */
+.data-text {
+  font-family: var(--font-geist-mono);
+  font-size: 12px;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- controls ---------- */
+.control {
+  border-radius: var(--radius-control);
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease,
+    box-shadow 150ms ease, transform 80ms ease;
+}
+
+.control:active {
+  transform: scale(0.98);
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  transition: background-color 150ms ease, color 150ms ease, transform 80ms ease;
+}
+
+.icon-button:hover {
+  background: var(--ink-soft);
+  color: var(--text-primary);
+}
+
+.icon-button:active {
+  transform: scale(0.94);
+}
+
+/* segmented control — selection via surface/border/weight only */
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--ink-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+}
+
+.segmented > button {
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.segmented > button[data-active="true"] {
+  background: var(--surface-solid);
+  color: var(--text-primary);
+  font-weight: 600;
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-rest);
+}
+.dark .segmented > button[data-active="true"] {
+  background: rgba(240, 240, 240, 0.12);
+}
+
+/* soft progress */
+.progress-track {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--ink-soft);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--ink);
+  transition: width 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---------- focus ---------- */
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* ---------- scrollbar (hidden) ---------- */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+::selection {
+  background: var(--ink-soft-strong);
+  color: var(--text-primary);
+}
+
+/* ---------- accessibility preferences ---------- */
+html.motion-reduced *,
+html.motion-reduced *::before,
+html.motion-reduced *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+html.reduce-transparency .glass,
+html.reduce-transparency .sidebar-glass,
+html.reduce-transparency .popover-glass {
+  background: var(--surface-solid);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.dark html.reduce-transparency .glass,
+html.reduce-transparency .dark .glass,
+html.reduce-transparency .dark .sidebar-glass,
+html.reduce-transparency .dark .popover-glass {
+  background: #0c0c0c;
+}

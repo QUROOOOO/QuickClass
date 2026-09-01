@@ -1,0 +1,107 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  darkMode: "class",
+  content: [
+    "./src/app/**/*.{ts,tsx}",
+    "./src/components/**/*.{ts,tsx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        outer: "var(--outer)",
+        shell: "var(--shell)",
+        canvas: "var(--shell)",
+        "surface-primary": "var(--surface-primary)",
+        "surface-secondary": "var(--surface-secondary)",
+        "surface-elevated": "var(--surface-elevated)",
+        "surface-tertiary": "var(--surface-secondary)",
+        "text-primary": "var(--text-primary)",
+        "text-secondary": "var(--text-secondary)",
+        "text-faint": "var(--text-faint)",
+        "text-muted": "var(--text-secondary)",
+        border: "var(--border)",
+        "border-strong": "var(--border-strong)",
+        "border-active": "var(--border-strong)",
+        accent: "var(--accent)",
+        "accent-strong": "var(--accent-strong)",
+        "accent-soft": "var(--accent-soft)",
+        "accent-dark": "var(--text-primary)",
+        ink: "var(--ink)",
+        "ink-strong": "var(--ink-strong)",
+        "ink-soft": "var(--ink-soft)",
+        "ink-soft-strong": "var(--ink-soft-strong)",
+        sidebar: "var(--sidebar)",
+        "sidebar-elevated": "var(--sidebar-elevated)",
+        success: "var(--success)",
+        "success-soft": "color-mix(in srgb, var(--success) 12%, transparent)",
+        warning: "var(--warning)",
+        "warning-soft": "color-mix(in srgb, var(--warning) 14%, transparent)",
+        error: "var(--error)",
+        "error-soft": "color-mix(in srgb, var(--error) 12%, transparent)",
+        info: "var(--text-secondary)",
+        "info-soft": "color-mix(in srgb, var(--text-secondary) 12%, transparent)",
+      },
+      fontFamily: {
+        sans: ["var(--font-geist)", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "var(--font-geist)", "sans-serif"],
+        mono: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
+      },
+      fontSize: {
+        "display-2xl": ["44px", { lineHeight: "1.05", letterSpacing: "-0.02em", fontWeight: "650" }],
+        "display-xl": ["36px", { lineHeight: "1.08", letterSpacing: "-0.02em", fontWeight: "650" }],
+        "display-lg": ["30px", { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "650" }],
+        "display-md": ["24px", { lineHeight: "1.15", letterSpacing: "-0.015em", fontWeight: "650" }],
+        "display-sm": ["20px", { lineHeight: "1.2", letterSpacing: "-0.01em", fontWeight: "650" }],
+      },
+      borderRadius: {
+        shell: "var(--radius-shell)",
+        panel: "var(--radius-panel)",
+        card: "var(--radius-card)",
+        control: "var(--radius-control)",
+      },
+      boxShadow: {
+        rest: "var(--shadow-rest)",
+        soft: "var(--shadow-soft)",
+        lifted: "var(--shadow-lifted)",
+        active: "var(--shadow-active)",
+      },
+      backdropBlur: {
+        glass: "var(--glass-blur)",
+      },
+      spacing: {
+        sidebar: "var(--sidebar-width)",
+        "sidebar-collapsed": "var(--sidebar-collapsed)",
+        topbar: "var(--topbar-height)",
+      },
+      keyframes: {
+        "fade-up": {
+          "0%": { opacity: "0", transform: "translateY(8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "fade-in": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        "scale-in": {
+          "0%": { opacity: "0", transform: "scale(0.97)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+        "draw-line": {
+          "0%": { strokeDashoffset: "1" },
+          "100%": { strokeDashoffset: "0" },
+        },
+        "pulse-dot": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.35" },
+        },
+      },
+      animation: {
+        "fade-up": "fade-up 500ms cubic-bezier(0.16, 1, 0.3, 1) both",
+        "fade-in": "fade-in 400ms ease-out both",
+        "scale-in": "scale-in 300ms cubic-bezier(0.16, 1, 0.3, 1) both",
+        "pulse-dot": "pulse-dot 1.8s ease-in-out infinite",
+      },
+    },
+  },
+  plugins: [],
+};

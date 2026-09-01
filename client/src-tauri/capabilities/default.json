@@ -1,0 +1,10 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "default",
+  "description": "Minimal capabilities for the main Code Butler window. Filesystem/process access is granted only through our own audited commands (src/commands/*), never through raw fs/shell plugin permissions.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "dialog:allow-open"
+  ]
+}
