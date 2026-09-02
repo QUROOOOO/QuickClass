@@ -2,18 +2,33 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import {
-  IconPlus,
-  IconFile,
-  IconClock,
-  IconSpark,
-  IconClose,
-  IconCheck,
-} from "@/components/ui/Icon";
+import { IconPlus, IconFile, IconSpark, IconClose, IconCheck } from "@/components/ui/Icon";
+import { Badge } from "@/components/ui/Badge";
 import { ClassDetailView } from "./ClassDetailView";
 import { listClasses, createClass, deleteClass, type ClassData } from "@/lib/api";
 
 const EMOJI_OPTIONS = ["📚", "🧬", "⚗️", "🌍", "💻", "📐", "🎨", "🎵", "📊", "🏛️"];
+
+function MasteryBar({ value }: { value: number }) {
+  return (
+    <div className="progress-track">
+      <motion.div
+        className="h-full rounded-full"
+        style={{
+          backgroundColor:
+            value >= 0.7
+              ? "var(--mastery-mastered)"
+              : value >= 0.4
+                ? "var(--mastery-learning)"
+                : "var(--mastery-attention)",
+        }}
+        initial={{ width: 0 }}
+        animate={{ width: `${value * 100}%` }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+      />
+    </div>
+  );
+}
 
 export function ClassesView() {
   const [classes, setClasses] = useState<ClassData[]>([]);
@@ -25,7 +40,6 @@ export function ClassesView() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
 
-  // Fetch classes on mount
   useEffect(() => {
     fetchClasses();
   }, []);
@@ -34,9 +48,7 @@ export function ClassesView() {
     try {
       const data = await listClasses();
       setClasses(data);
-    } catch (err) {
-      console.error("Failed to fetch classes:", err);
-      // Fall back to demo data if backend is not running
+    } catch {
       setClasses([
         {
           id: "demo-bio",
@@ -54,6 +66,14 @@ export function ClassesView() {
           progress: 42,
           description: "Functional groups, reaction mechanisms, and spectroscopy.",
         },
+        {
+          id: "demo-hist",
+          name: "World History",
+          emoji: "🌍",
+          sources: 5,
+          progress: 85,
+          description: "Major civilizations, revolutions, and modern geopolitics.",
+        },
       ]);
     } finally {
       setLoading(false);
@@ -62,7 +82,6 @@ export function ClassesView() {
 
   const handleCreate = async () => {
     if (!newName.trim() || creating) return;
-    
     setCreating(true);
     try {
       const newClass = await createClass({
@@ -71,14 +90,9 @@ export function ClassesView() {
         description: newDesc.trim() || "New class",
       });
       setClasses((prev) => [newClass, ...prev]);
-      setNewName("");
-      setNewEmoji("📚");
-      setNewDesc("");
-      setShowCreate(false);
-    } catch (err) {
-      console.error("Failed to create class:", err);
-      // Fallback: create locally
-      const fallbackClass: ClassData = {
+      resetForm();
+    } catch {
+      const fallback: ClassData = {
         id: `local-${Date.now()}`,
         name: newName.trim(),
         emoji: newEmoji,
@@ -86,23 +100,24 @@ export function ClassesView() {
         progress: 0,
         description: newDesc.trim() || "New class",
       };
-      setClasses((prev) => [fallbackClass, ...prev]);
-      setNewName("");
-      setNewEmoji("📚");
-      setNewDesc("");
-      setShowCreate(false);
+      setClasses((prev) => [fallback, ...prev]);
+      resetForm();
     } finally {
       setCreating(false);
     }
   };
 
+  const resetForm = () => {
+    setNewName("");
+    setNewEmoji("📚");
+    setNewDesc("");
+    setShowCreate(false);
+  };
+
   const handleDelete = async (classId: string) => {
     try {
       await deleteClass(classId);
-      setClasses((prev) => prev.filter((c) => c.id !== classId));
-    } catch (err) {
-      console.error("Failed to delete class:", err);
-      // Fallback: remove locally
+    } finally {
       setClasses((prev) => prev.filter((c) => c.id !== classId));
     }
   };
@@ -119,113 +134,90 @@ export function ClassesView() {
   }
 
   return (
-    <div className="px-6 py-8 max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto px-6 py-10">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-start justify-between mb-8"
+      >
         <div>
-          <h1 className="display text-display-lg text-text-primary">Classes</h1>
-          <p className="text-[15px] text-text-secondary mt-1">
-            Your study subjects. Each class gets its own AI tutor.
+          <p className="label-caps mb-2">Classes</p>
+          <h1 className="text-display-xl text-text-primary">Your study subjects</h1>
+          <p className="text-[14px] text-text-secondary mt-1.5">
+            Each class gets its own AI tutor, sources, and mastery tracking.
           </p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="control flex items-center gap-2 px-4 py-2.5 bg-text-primary text-page
-            text-[13px] font-medium rounded-card hover:shadow-lifted transition-all"
+          className="btn-accent control flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium rounded-full"
         >
           <IconPlus size={15} />
           New Class
         </button>
-      </div>
+      </motion.div>
 
-      {/* Create Class Form */}
+      {/* Create Form */}
       <AnimatePresence>
         {showCreate && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="overflow-hidden"
+            className="overflow-hidden mb-6"
           >
-            <div className="surface-elevated rounded-panel p-5 border border-border">
+            <div className="surface-elevated p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[14px] font-semibold text-text-primary">
-                  Create New Class
-                </h3>
-                <button
-                  onClick={() => setShowCreate(false)}
-                  className="icon-button p-1.5 text-text-secondary hover:text-text-primary"
-                >
+                <h3 className="text-[14px] font-semibold text-text-primary">Create New Class</h3>
+                <button onClick={resetForm} className="icon-button">
                   <IconClose size={16} />
                 </button>
               </div>
-
               <div className="space-y-4">
-                {/* Emoji picker */}
                 <div>
-                  <label className="label-caps text-text-secondary mb-2 block">
-                    Icon
-                  </label>
+                  <label className="label-caps mb-2 block">Icon</label>
                   <div className="flex gap-1.5 flex-wrap">
                     {EMOJI_OPTIONS.map((emoji) => (
                       <button
                         key={emoji}
                         onClick={() => setNewEmoji(emoji)}
-                        className={`w-9 h-9 rounded-card grid place-items-center text-lg
-                          transition-all ${
-                            newEmoji === emoji
-                              ? "bg-ink-soft-strong border border-border-strong shadow-rest scale-110"
-                              : "bg-ink-soft border border-transparent hover:border-border"
-                          }`}
+                        className={`w-9 h-9 rounded-card grid place-items-center text-lg transition-all ${
+                          newEmoji === emoji
+                            ? "bg-accent-soft border border-accent shadow-rest scale-110"
+                            : "bg-ink-soft border border-transparent hover:border-border"
+                        }`}
                       >
                         {emoji}
                       </button>
                     ))}
                   </div>
                 </div>
-
-                {/* Name */}
                 <div>
-                  <label className="label-caps text-text-secondary mb-1.5 block">
-                    Class Name
-                  </label>
+                  <label className="label-caps mb-1.5 block">Class Name</label>
                   <input
                     type="text"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder="e.g. Biology 101"
-                    className="w-full px-3 py-2.5 bg-ink-soft border border-border rounded-card
-                      text-[13px] text-text-primary placeholder:text-text-faint
-                      focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+                    className="w-full px-3 py-2.5 bg-ink-soft border border-border rounded-card text-[13px] text-text-primary placeholder:text-text-faint focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent-soft"
                     autoFocus
                   />
                 </div>
-
-                {/* Description */}
                 <div>
-                  <label className="label-caps text-text-secondary mb-1.5 block">
-                    Description
-                  </label>
+                  <label className="label-caps mb-1.5 block">Description</label>
                   <input
                     type="text"
                     value={newDesc}
                     onChange={(e) => setNewDesc(e.target.value)}
                     placeholder="What is this class about?"
-                    className="w-full px-3 py-2.5 bg-ink-soft border border-border rounded-card
-                      text-[13px] text-text-primary placeholder:text-text-faint
-                      focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-border-strong"
+                    className="w-full px-3 py-2.5 bg-ink-soft border border-border rounded-card text-[13px] text-text-primary placeholder:text-text-faint focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent-soft"
                   />
                 </div>
-
-                {/* Actions */}
                 <div className="flex gap-2 pt-1">
                   <button
                     onClick={handleCreate}
                     disabled={!newName.trim() || creating}
-                    className="control flex items-center gap-2 px-4 py-2.5 bg-text-primary text-page
-                      text-[13px] font-medium rounded-card hover:shadow-lifted transition-all
-                      disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="btn-accent control flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium rounded-card disabled:opacity-40"
                   >
                     {creating ? (
                       <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -235,9 +227,8 @@ export function ClassesView() {
                     {creating ? "Creating..." : "Create Class"}
                   </button>
                   <button
-                    onClick={() => setShowCreate(false)}
-                    className="control px-4 py-2.5 text-[13px] text-text-secondary
-                      hover:text-text-primary hover:bg-ink-soft rounded-card transition-all"
+                    onClick={resetForm}
+                    className="control px-4 py-2.5 text-[13px] text-text-secondary hover:text-text-primary hover:bg-ink-soft rounded-card transition-all"
                   >
                     Cancel
                   </button>
@@ -248,7 +239,7 @@ export function ClassesView() {
         )}
       </AnimatePresence>
 
-      {/* Loading State */}
+      {/* Loading */}
       {loading && (
         <div className="grid place-items-center min-h-[40vh]">
           <div className="w-8 h-8 border-2 border-text-primary border-t-transparent rounded-full animate-spin" />
@@ -256,72 +247,55 @@ export function ClassesView() {
       )}
 
       {/* Class Grid */}
-      {!loading && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {classes.map((cls) => (
+      {!loading && classes.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {classes.map((cls, i) => (
             <motion.div
               key={cls.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: i * 0.06 }}
               layout
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="surface-panel rounded-panel p-5 group cursor-pointer
-                hover:shadow-lifted transition-all duration-200"
+              className="surface-panel p-5 group cursor-pointer hover:shadow-soft transition-all duration-200"
               onClick={() => setSelectedClass(cls)}
             >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl mt-0.5">{cls.emoji}</span>
-                  <div>
-                    <h3 className="text-[14px] font-medium text-text-primary">
-                      {cls.name}
-                    </h3>
-                    <p className="text-[12px] text-text-secondary mt-0.5 line-clamp-2">
-                      {cls.description}
-                    </p>
-                  </div>
-                </div>
+              <div className="flex items-start justify-between mb-3">
+                <span className="text-2xl">{cls.emoji}</span>
+                <Badge
+                  tone={cls.progress >= 70 ? "success" : cls.progress >= 40 ? "info" : "warning"}
+                >
+                  {cls.progress}%
+                </Badge>
               </div>
-
-              <div className="flex items-center gap-4 mt-4 text-[11px] text-text-secondary">
-                <span className="flex items-center gap-1">
-                  <IconFile size={11} />
-                  {cls.sources} sources
-                </span>
-                <span className="flex items-center gap-1 ml-auto">
-                  <IconSpark size={11} className="text-[#ED6A2F]" />
-                  {cls.progress}% mastered
-                </span>
-              </div>
-
-              {/* Progress bar */}
-              <div className="mt-3 progress-track">
-                <div
-                  className="progress-fill"
-                  style={{ width: `${cls.progress}%` }}
-                />
+              <h3 className="text-[14px] font-semibold text-text-primary mb-1">{cls.name}</h3>
+              <p className="text-[12px] text-text-secondary mb-3 line-clamp-2">{cls.description}</p>
+              <MasteryBar value={cls.progress / 100} />
+              <div className="flex items-center gap-1.5 mt-3 text-[11px] text-text-secondary">
+                <IconFile size={11} />
+                <span>{cls.sources} sources</span>
+                <span className="text-text-faint">·</span>
+                <IconSpark size={11} className="text-text-faint" />
+                <span>AI Tutor ready</span>
               </div>
             </motion.div>
           ))}
         </div>
       )}
 
+      {/* Empty State */}
       {!loading && classes.length === 0 && (
         <div className="grid place-items-center min-h-[40vh]">
           <div className="text-center max-w-sm">
-            <div className="w-14 h-14 rounded-card bg-ink-soft grid place-items-center mx-auto mb-4">
-              <IconPlus size={24} className="text-text-faint" />
+            <div className="w-14 h-14 rounded-card bg-accent-soft grid place-items-center mx-auto mb-4">
+              <IconPlus size={24} className="text-accent" />
             </div>
-            <p className="display text-display-sm text-text-primary mb-2">
-              No classes yet
-            </p>
+            <h3 className="text-display-sm text-text-primary mb-2">No classes yet</h3>
             <p className="text-[13px] text-text-secondary mb-4">
-              Create your first class to start studying with an AI tutor that
-              adapts to how you learn.
+              Create your first class to start studying with an AI tutor that adapts to how you learn.
             </p>
             <button
               onClick={() => setShowCreate(true)}
-              className="control flex items-center gap-2 px-4 py-2.5 bg-text-primary text-page
-                text-[13px] font-medium rounded-card mx-auto"
+              className="btn-accent control flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium rounded-full mx-auto"
             >
               <IconPlus size={15} />
               Create Class

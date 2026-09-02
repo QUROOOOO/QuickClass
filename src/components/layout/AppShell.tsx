@@ -107,7 +107,7 @@ function BottomNav({
             onClick={() => onNavigate(item.id)}
             aria-current={active ? "page" : undefined}
             className={`flex-1 flex flex-col items-center justify-center gap-1 py-2 text-[10.5px] font-medium rounded-control transition-colors
-              ${active ? "text-text-primary bg-ink-soft" : "text-text-secondary"}`}
+              ${active ? "text-accent bg-accent-soft" : "text-text-secondary"}`}
           >
             <Icon size={18} />
             {item.label}

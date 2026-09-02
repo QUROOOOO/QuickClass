@@ -35,8 +35,7 @@ function ThemeControl({ compact }: { compact?: boolean }) {
   return (
     <div className={compact ? "py-1" : "px-1 py-1"}>
       <div
-        className="grid grid-cols-3 gap-0.5 p-0.5 rounded-full border border-border"
-        style={{ background: "var(--ink-soft)" }}
+        className="segmented"
         role="radiogroup"
         aria-label="Theme"
       >
@@ -49,11 +48,8 @@ function ThemeControl({ compact }: { compact?: boolean }) {
               aria-checked={active}
               onClick={() => setTheme(o.id)}
               title={o.label}
-              className={`control flex items-center justify-center gap-1 h-7 rounded-full text-[10px] font-medium whitespace-nowrap px-1 ${
-                active
-                  ? "bg-surface-primary dark:bg-white/12 text-text-primary font-semibold border border-border-strong shadow-rest"
-                  : "text-text-secondary border border-transparent hover:text-text-primary"
-              }`}
+              data-active={active}
+              className="flex items-center justify-center gap-1"
             >
               {o.id === "system" && <IconMonitor size={11} />}
               <span className="truncate">{o.label}</span>
@@ -109,8 +105,7 @@ export function Sidebar({ current, onNavigate, collapsed, onToggle }: SidebarPro
     <nav
       aria-label="Primary"
       onClick={collapsed ? onToggle : undefined}
-      className="hidden sm:flex flex-col shrink-0 rounded-[18px] overflow-hidden
-        sidebar-glass select-none cursor-default"
+      className="sidebar-glass grain hidden sm:flex flex-col shrink-0 rounded-[18px] overflow-hidden select-none cursor-default"
       style={{
         width: collapsed ? 76 : 236,
         transition: "width 240ms cubic-bezier(0.22, 0.61, 0.36, 1)",
@@ -139,9 +134,6 @@ export function Sidebar({ current, onNavigate, collapsed, onToggle }: SidebarPro
             )}
           </button>
 
-          {/* Bare chevron — no button chrome. Same row as the brand, never
-              moves vertically. Fully absent (not just hidden) when collapsed;
-              the sidebar re-expands via the brand mark instead. */}
           {!collapsed && (
             <button
               type="button"
@@ -173,11 +165,11 @@ export function Sidebar({ current, onNavigate, collapsed, onToggle }: SidebarPro
           }}
           aria-current={current === "home" ? "page" : undefined}
           title={collapsed ? "Dashboard" : undefined}
-          className={`control w-full flex items-center gap-3 px-2.5 py-2 text-[13px]
+          className={`control w-full flex items-center gap-3 px-2.5 py-2 text-[13px] rounded-[8px]
             ${collapsed ? "justify-center px-0" : ""}
             ${
               current === "home"
-                ? "bg-ink-soft-strong text-text-primary font-medium"
+                ? "bg-accent-soft text-accent font-semibold"
                 : "text-text-secondary hover:text-text-primary hover:bg-ink-soft"
             }`}
         >
@@ -197,11 +189,11 @@ export function Sidebar({ current, onNavigate, collapsed, onToggle }: SidebarPro
           }}
           aria-current={current === "classes" ? "page" : undefined}
           title={collapsed ? "Classes" : undefined}
-          className={`control w-full flex items-center gap-3 px-2.5 py-2 text-[13px]
+          className={`control w-full flex items-center gap-3 px-2.5 py-2 text-[13px] rounded-[8px]
             ${collapsed ? "justify-center px-0" : ""}
             ${
               current === "classes"
-                ? "bg-ink-soft-strong text-text-primary font-medium"
+                ? "bg-accent-soft text-accent font-semibold"
                 : "text-text-secondary hover:text-text-primary hover:bg-ink-soft"
             }`}
         >
@@ -224,13 +216,13 @@ export function Sidebar({ current, onNavigate, collapsed, onToggle }: SidebarPro
           }}
           aria-expanded={accountOpen}
           aria-haspopup="menu"
-          className={`control w-full flex items-center gap-2.5 py-2 text-left hover:bg-ink-soft rounded-control ${
+          className={`control w-full flex items-center gap-2.5 py-2 text-left hover:bg-ink-soft rounded-[8px] ${
             collapsed ? "justify-center px-0" : "px-1.5"
           }`}
           title={collapsed ? (user ? user.name : "Sign in") : undefined}
         >
           {user ? (
-            <span className="w-7 h-7 shrink-0 grid place-items-center rounded-full bg-ink-soft-strong text-[10.5px] font-semibold text-text-primary">
+            <span className="w-7 h-7 shrink-0 grid place-items-center rounded-full bg-accent-soft text-[10.5px] font-semibold text-accent">
               {initials}
             </span>
           ) : (
@@ -262,7 +254,7 @@ export function Sidebar({ current, onNavigate, collapsed, onToggle }: SidebarPro
             >
               {user && (
                 <div className="flex items-center gap-2.5 px-2 py-2 mb-1 border-b border-border">
-                  <span className="w-7 h-7 shrink-0 grid place-items-center rounded-full bg-ink-soft-strong text-[10.5px] font-semibold text-text-primary">
+                  <span className="w-7 h-7 shrink-0 grid place-items-center rounded-full bg-accent-soft text-[10.5px] font-semibold text-accent">
                     {initials}
                   </span>
                   <span className="min-w-0">

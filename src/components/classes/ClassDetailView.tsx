@@ -1,22 +1,24 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { IconFile, IconPlus, IconCheck, IconSpark, IconChevronLeft, IconClose } from '@/components/ui/Icon';
+import { motion, AnimatePresence } from 'motion/react';
+import { IconFile, IconPlus, IconCheck, IconSpark, IconChevronLeft, IconClose, IconRefresh } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { 
-  listSources, 
-  uploadSource, 
-  deleteSource, 
-  sendChat, 
-  generateQuiz, 
+import { LivingKnowledgeField } from '@/components/spatial/LivingKnowledgeField';
+import {
+  listSources,
+  uploadSource,
+  deleteSource,
+  sendChat,
+  generateQuiz,
   generateFlashcards,
   type SourceData,
   type QuizQuestion,
   type FlashcardData
 } from '@/lib/api';
 
-type ClassTab = 'sources' | 'tutor' | 'notes' | 'flashcards' | 'quiz';
+type ClassTab = 'tutor' | 'sources' | 'notes' | 'flashcards' | 'quiz' | 'mastery';
 
 interface ClassDetailViewProps {
   classId: string;
@@ -30,19 +32,17 @@ export function ClassDetailView({ classId, className, emoji, onBack }: ClassDeta
   const [sources, setSources] = useState<SourceData[]>([]);
   const [loadingSources, setLoadingSources] = useState(true);
 
-  const tabs: { id: ClassTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'tutor', label: 'AI Tutor', icon: <IconSpark className="w-4 h-4" /> },
-    { id: 'sources', label: 'Sources', icon: <IconFile className="w-4 h-4" /> },
-    { id: 'notes', label: 'Notes', icon: <IconFile className="w-4 h-4" /> },
-    { id: 'flashcards', label: 'Flashcards', icon: <IconFile className="w-4 h-4" /> },
-    { id: 'quiz', label: 'Quiz', icon: <IconCheck className="w-4 h-4" /> }
+  const tabs: { id: ClassTab; label: string }[] = [
+    { id: 'tutor', label: 'Tutor' },
+    { id: 'sources', label: 'Sources' },
+    { id: 'notes', label: 'Notes' },
+    { id: 'flashcards', label: 'Flashcards' },
+    { id: 'quiz', label: 'Quiz' },
+    { id: 'mastery', label: 'Mastery' },
   ];
 
-  // Fetch sources when tab changes to sources
   useEffect(() => {
-    if (activeTab === 'sources') {
-      fetchSources();
-    }
+    if (activeTab === 'sources') fetchSources();
   }, [activeTab, classId]);
 
   const fetchSources = async () => {
@@ -50,28 +50,10 @@ export function ClassDetailView({ classId, className, emoji, onBack }: ClassDeta
     try {
       const data = await listSources(classId);
       setSources(data);
-    } catch (err) {
-      console.error('Failed to fetch sources:', err);
-      // Fallback demo data
+    } catch {
       setSources([
-        {
-          id: 'src_demo_1',
-          class_id: classId,
-          name: 'Biology Textbook Chapter 3.pdf',
-          type: 'pdf',
-          status: 'ready',
-          chunks: 45,
-          size: '2.4 MB',
-        },
-        {
-          id: 'src_demo_2',
-          class_id: classId,
-          name: 'Lecture Notes - Cell Structure.docx',
-          type: 'docx',
-          status: 'ready',
-          chunks: 12,
-          size: '156 KB',
-        },
+        { id: 'src_demo_1', class_id: classId, name: 'Biology Textbook Chapter 3.pdf', type: 'pdf', status: 'ready', chunks: 45, size: '2.4 MB' },
+        { id: 'src_demo_2', class_id: classId, name: 'Lecture Notes - Cell Structure.docx', type: 'docx', status: 'ready', chunks: 12, size: '156 KB' },
       ]);
     } finally {
       setLoadingSources(false);
@@ -82,10 +64,8 @@ export function ClassDetailView({ classId, className, emoji, onBack }: ClassDeta
     try {
       const newSource = await uploadSource(classId, file);
       setSources(prev => [newSource, ...prev]);
-    } catch (err) {
-      console.error('Upload failed:', err);
-      // Fallback: add locally
-      const fallbackSource: SourceData = {
+    } catch {
+      setSources(prev => [{
         id: `local_${Date.now()}`,
         class_id: classId,
         name: file.name,
@@ -93,71 +73,64 @@ export function ClassDetailView({ classId, className, emoji, onBack }: ClassDeta
         status: 'ready',
         chunks: Math.max(1, Math.floor(file.size / 2000)),
         size: formatFileSize(file.size),
-      };
-      setSources(prev => [fallbackSource, ...prev]);
+      }, ...prev]);
     }
   };
 
   const handleDeleteSource = async (sourceId: string) => {
-    try {
-      await deleteSource(classId, sourceId);
-      setSources(prev => prev.filter(s => s.id !== sourceId));
-    } catch (err) {
-      console.error('Delete failed:', err);
+    try { await deleteSource(classId, sourceId); } finally {
       setSources(prev => prev.filter(s => s.id !== sourceId));
     }
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="max-w-5xl mx-auto px-6 py-10">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <button
-          onClick={onBack}
-          className="icon-button"
-          aria-label="Back to classes"
-        >
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center gap-4 mb-6"
+      >
+        <button onClick={onBack} className="icon-button" aria-label="Back to classes">
           <IconChevronLeft className="w-5 h-5" />
         </button>
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">{emoji}</span>
-          <h1 className="display text-2xl">{className}</h1>
+        <span className="text-2xl">{emoji}</span>
+        <div>
+          <h1 className="text-display-lg text-text-primary">{className}</h1>
+          <p className="text-[12px] text-text-secondary">Study room, AI Tutor, {sources.length || '—'} sources</p>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-6 p-1 surface-panel rounded-lg">
+      {/* Tabs — segmented editorial */}
+      <div className="segmented mb-8">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
-              activeTab === tab.id
-                ? 'bg-text-primary text-page'
-                : 'text-text-secondary hover:text-text-primary'
-            }`}
+            data-active={activeTab === tab.id}
           >
-            {tab.icon}
-            <span className="text-sm font-medium">{tab.label}</span>
+            {tab.label}
           </button>
         ))}
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        {activeTab === 'tutor' && <TutorView classId={classId} />}
-        {activeTab === 'sources' && (
-          <SourcesView 
-            sources={sources} 
-            loading={loadingSources}
-            onUpload={handleUpload}
-            onDelete={handleDeleteSource}
-          />
-        )}
-        {activeTab === 'notes' && <NotesView classId={classId} />}
-        {activeTab === 'flashcards' && <FlashcardsView classId={classId} />}
-        {activeTab === 'quiz' && <QuizView classId={classId} />}
-      </div>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2 }}
+        >
+          {activeTab === 'tutor' && <TutorView classId={classId} />}
+          {activeTab === 'sources' && <SourcesView sources={sources} loading={loadingSources} onUpload={handleUpload} onDelete={handleDeleteSource} />}
+          {activeTab === 'notes' && <NotesView />}
+          {activeTab === 'flashcards' && <FlashcardsView classId={classId} />}
+          {activeTab === 'quiz' && <QuizView classId={classId} />}
+          {activeTab === 'mastery' && <MasteryView />}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
@@ -168,256 +141,236 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/* ═══════════════════════════════════════════
+   TUTOR — Context rail, NOT ChatGPT style.
+   Source-grounded, citation-first design.
+   ═══════════════════════════════════════════ */
+
 function TutorView({ classId }: { classId: string }) {
-  const [messages, setMessages] = useState<Array<{role: 'user' | 'assistant', content: string, sources?: {name: string, relevance: number}[]}>>([
-    {
-      role: 'assistant',
-      content: "Hello! I'm your AI study tutor. I can help you understand your course materials, create study guides, and answer questions based on your uploaded sources.\n\nWhat would you like to learn about today?"
-    }
-  ]);
+  const [messages, setMessages] = useState<Array<{
+    role: 'user' | 'assistant';
+    content: string;
+    sources?: { name: string; relevance: number }[];
+  }>>([{
+    role: 'assistant',
+    content: "What would you like to understand better? I can explain concepts, walk through processes, or quiz you on your materials.",
+  }]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
-    
     const userMessage = input.trim();
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setLoading(true);
-    
     try {
       const response = await sendChat(classId, userMessage);
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: response.response,
-        sources: response.sources 
-      }]);
-    } catch (err) {
-      console.error('Chat failed:', err);
-      // Fallback response
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: `I understand you're asking about: "${userMessage}". I'm here to help! Try uploading some course materials, and I'll be able to give you more specific answers based on your sources.`
-      }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: response.response, sources: response.sources }]);
+    } catch {
+      setMessages(prev => [...prev, { role: 'assistant', content: `I understand you're asking about: "${userMessage}". Upload some course materials and I'll give you source-grounded answers.` }]);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[80%] p-4 rounded-lg ${
-                msg.role === 'user'
-                  ? 'bg-text-primary text-page'
-                  : 'surface-panel'
-              }`}
+    <div className="grid lg:grid-cols-[1fr_280px] gap-6">
+      {/* Main chat area */}
+      <div className="flex flex-col">
+        <div className="flex-1 overflow-y-auto space-y-4 mb-4 max-h-[50vh]">
+          {messages.map((msg, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`${msg.role === 'user' ? 'ml-12' : ''}`}
             >
-              <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-              {msg.sources && msg.sources.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-border">
-                  <p className="text-xs text-text-secondary mb-1">Sources:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {msg.sources.map((source, j) => (
-                      <Badge key={j} tone="success">
-                        {source.name} ({Math.round(source.relevance * 100)}%)
-                      </Badge>
-                    ))}
+              {msg.role === 'assistant' && (
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div className="w-5 h-5 rounded-full bg-accent-soft flex items-center justify-center">
+                    <IconSpark size={10} className="text-accent" />
                   </div>
+                  <span className="label-micro">TUTOR</span>
                 </div>
               )}
-            </div>
-          </div>
-        ))}
-        {loading && (
-          <div className="flex justify-start">
-            <div className="surface-panel p-4 rounded-lg">
-              <div className="flex items-center gap-2 text-text-secondary">
-                <span className="w-2 h-2 bg-text-secondary rounded-full animate-pulse" />
-                <span className="w-2 h-2 bg-text-secondary rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
-                <span className="w-2 h-2 bg-text-secondary rounded-full animate-pulse" style={{ animationDelay: '0.4s' }} />
+              <div className={`${msg.role === 'user' ? 'bg-accent text-white rounded-2xl rounded-br-md px-4 py-2.5 ml-auto max-w-[85%]' : 'surface-panel px-4 py-3'}`}>
+                <p className="text-[13.5px] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+              </div>
+              {msg.sources && msg.sources.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {msg.sources.map((source, j) => (
+                    <span key={j} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--info-soft)] text-[10px] font-medium text-[var(--info)]">
+                      <IconFile size={9} />
+                      {source.name}
+                      <span className="opacity-60">{Math.round(source.relevance * 100)}%</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          ))}
+          {loading && (
+            <div className="ml-12">
+              <div className="surface-panel px-4 py-3 inline-flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-text-faint rounded-full animate-pulse-dot" />
+                <span className="w-1.5 h-1.5 bg-text-faint rounded-full animate-pulse-dot" style={{ animationDelay: '0.2s' }} />
+                <span className="w-1.5 h-1.5 bg-text-faint rounded-full animate-pulse-dot" style={{ animationDelay: '0.4s' }} />
               </div>
             </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
 
-      {/* Input */}
-      <div className="p-4 border-t border-border">
-        <div className="flex gap-2">
+        {/* Input — writing surface */}
+        <div className="writing-surface flex items-center gap-3 px-4 py-3">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            placeholder="Ask a question about your materials..."
-            className="flex-1 px-4 py-2 bg-ink-soft border border-border rounded-lg text-sm text-text-primary placeholder:text-text-faint focus:outline-none focus:border-border-strong"
+            placeholder="Ask about your materials..."
+            className="flex-1 bg-transparent text-[13.5px] text-text-primary placeholder:text-text-faint focus:outline-none"
             disabled={loading}
           />
-          <Button onClick={handleSend} variant="primary" size="sm" disabled={loading || !input.trim()}>
-            {loading ? 'Thinking...' : 'Send'}
-          </Button>
+          <button
+            onClick={handleSend}
+            disabled={loading || !input.trim()}
+            className="btn-accent control px-3 py-1.5 rounded-full text-[12px] font-medium disabled:opacity-30"
+          >
+            Send
+          </button>
+        </div>
+      </div>
+
+      {/* Context rail — source citations sidebar */}
+      <div className="hidden lg:block space-y-4">
+        <div className="surface-panel p-4">
+          <p className="label-caps mb-3">Source Context</p>
+          <p className="text-[12px] text-text-secondary leading-relaxed">
+            Answers are grounded in your uploaded materials. Citations appear below each response.
+          </p>
+        </div>
+        <div className="surface-panel p-4">
+          <p className="label-caps mb-2">Suggested Questions</p>
+          <div className="space-y-1.5">
+            {["Explain glycolysis step by step", "What are the differences between mitosis and meiosis?", "How does ATP synthase work?"].map((q, i) => (
+              <button key={i} className="w-full text-left text-[12px] text-text-secondary hover:text-text-primary py-1.5 border-b border-[var(--border)] last:border-0 transition-colors">
+                {q}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-interface SourcesViewProps {
+/* ═══════════════════════════════════════════
+   SOURCES — Upload, list, manage
+   ═══════════════════════════════════════════ */
+
+function SourcesView({ sources, loading, onUpload, onDelete }: {
   sources: SourceData[];
   loading: boolean;
   onUpload: (file: File) => void;
   onDelete: (sourceId: string) => void;
-}
-
-function SourcesView({ sources, loading, onUpload, onDelete }: SourcesViewProps) {
+}) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      onUpload(file);
-      e.target.value = ''; // Reset input
-    }
-  };
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="display text-lg">Uploaded Sources</h2>
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          accept=".pdf,.docx,.doc,.txt,.md,.png,.jpg,.jpeg"
-          onChange={handleFileChange}
-        />
-        <Button 
-          variant="primary" 
-          size="sm" 
-          className="flex items-center gap-2"
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-display-sm text-text-primary">Uploaded Sources</h2>
+          <p className="text-[12px] text-text-secondary mt-0.5">{sources.length} materials indexed</p>
+        </div>
+        <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.docx,.doc,.txt,.md,.png,.jpg,.jpeg" onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) { onUpload(file); e.target.value = ''; }
+        }} />
+        <button
           onClick={() => fileInputRef.current?.click()}
+          className="btn-accent control flex items-center gap-2 px-4 py-2 text-[13px] font-medium rounded-full"
         >
-          <IconPlus className="w-4 h-4" />
-          Upload Source
-        </Button>
+          <IconPlus size={14} /> Upload
+        </button>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12">
+        <div className="grid place-items-center py-16">
           <div className="w-8 h-8 border-2 border-text-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : sources.length === 0 ? (
+        <div className="text-center py-16">
+          <IconFile size={32} className="text-text-faint mx-auto mb-3" />
+          <p className="text-[13px] text-text-secondary">No sources uploaded yet</p>
+          <p className="text-[12px] text-text-faint mt-1">Upload PDFs, notes, or slides to get started</p>
         </div>
       ) : (
         <div className="space-y-2">
           {sources.map((source) => (
-            <div
-              key={source.id}
-              className="flex items-center justify-between p-4 surface-panel rounded-lg"
-            >
-              <div className="flex items-center gap-3">
-                <IconFile className="w-5 h-5 text-text-secondary" />
-                <div>
-                  <p className="text-sm font-medium text-text-primary">{source.name}</p>
-                  <p className="text-xs text-text-secondary">
-                    {source.size} • {source.chunks} chunks
-                  </p>
-                </div>
+            <div key={source.id} className="surface-panel p-4 flex items-center gap-4">
+              <div className="w-9 h-9 rounded-card bg-accent-soft flex items-center justify-center flex-shrink-0">
+                <IconFile size={15} className="text-accent" />
               </div>
-              <div className="flex items-center gap-2">
-                <Badge tone={source.status === 'ready' ? 'success' : source.status === 'processing' ? 'warning' : 'error'}>
-                  {source.status}
-                </Badge>
-                <button
-                  onClick={() => onDelete(source.id)}
-                  className="icon-button p-1 text-text-secondary hover:text-text-primary"
-                >
-                  <IconClose className="w-4 h-4" />
-                </button>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium text-text-primary truncate">{source.name}</p>
+                <p className="text-[11px] text-text-secondary">{source.size}, {source.chunks} chunks</p>
               </div>
+              <Badge tone={source.status === 'ready' ? 'success' : source.status === 'processing' ? 'warning' : 'error'}>
+                {source.status}
+              </Badge>
+              <button onClick={() => onDelete(source.id)} className="icon-button">
+                <IconClose size={14} />
+              </button>
             </div>
           ))}
         </div>
       )}
-
-      {!loading && sources.length === 0 && (
-        <div className="text-center py-12">
-          <IconFile className="w-12 h-12 mx-auto text-text-secondary mb-4" />
-          <p className="text-text-secondary">No sources uploaded yet</p>
-          <p className="text-sm text-text-secondary mt-1">
-            Upload your course materials to get started
-          </p>
-        </div>
-      )}
     </div>
   );
 }
 
-function NotesView({ classId }: { classId: string }) {
+/* ═══════════════════════════════════════════
+   NOTES — Study notes
+   ═══════════════════════════════════════════ */
+
+function NotesView() {
   const [notes] = useState([
-    {
-      id: '1',
-      title: 'Cell Structure Summary',
-      content: 'Key organelles and their functions...',
-      createdAt: '2 hours ago'
-    },
-    {
-      id: '2',
-      title: 'Cellular Respiration',
-      content: 'The process of converting glucose to ATP...',
-      createdAt: '1 day ago'
-    }
+    { id: '1', title: 'Cell Structure Summary', content: 'Key organelles and their functions...', createdAt: '2 hours ago' },
+    { id: '2', title: 'Cellular Respiration', content: 'The process of converting glucose to ATP...', createdAt: '1 day ago' },
   ]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="display text-lg">Study Notes</h2>
-        <Button variant="primary" size="sm" className="flex items-center gap-2">
-          <IconPlus className="w-4 h-4" />
-          Create Note
-        </Button>
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-display-sm text-text-primary">Study Notes</h2>
+        <button className="btn-accent control flex items-center gap-2 px-4 py-2 text-[13px] font-medium rounded-full">
+          <IconPlus size={14} /> New Note
+        </button>
       </div>
-
-      <div className="grid gap-4">
+      <div className="grid gap-3">
         {notes.map((note) => (
-          <div key={note.id} className="p-4 surface-panel rounded-lg cursor-pointer hover:border-border-strong transition-colors">
-            <h3 className="font-medium text-text-primary mb-1">{note.title}</h3>
-            <p className="text-sm text-text-secondary">{note.content}</p>
-            <p className="text-xs text-text-secondary mt-2">{note.createdAt}</p>
+          <div key={note.id} className="surface-panel p-4 cursor-pointer hover:shadow-soft transition-all">
+            <h3 className="text-[13px] font-semibold text-text-primary mb-1">{note.title}</h3>
+            <p className="text-[12px] text-text-secondary">{note.content}</p>
+            <p className="text-[10px] text-text-faint mt-2">{note.createdAt}</p>
           </div>
         ))}
       </div>
-
-      {notes.length === 0 && (
-        <div className="text-center py-12">
-          <IconFile className="w-12 h-12 mx-auto text-text-secondary mb-4" />
-          <p className="text-text-secondary">No notes yet</p>
-          <p className="text-sm text-text-secondary mt-1">
-            Ask the AI tutor to create notes from your materials
-          </p>
-        </div>
-      )}
     </div>
   );
 }
+
+/* ═══════════════════════════════════════════
+   FLASHCARDS — Tactile study-card interaction
+   ═══════════════════════════════════════════ */
 
 function FlashcardsView({ classId }: { classId: string }) {
   const [flashcards, setFlashcards] = useState<FlashcardData[]>([]);
@@ -430,9 +383,7 @@ function FlashcardsView({ classId }: { classId: string }) {
     try {
       const data = await generateFlashcards(classId, 10);
       setFlashcards(data.flashcards);
-    } catch (err) {
-      console.error('Failed to generate flashcards:', err);
-      // Fallback
+    } catch {
       setFlashcards([
         { front: 'What is the powerhouse of the cell?', back: 'Mitochondria', difficulty: 'easy' },
         { front: 'What is ATP?', back: 'Adenosine triphosphate - energy currency', difficulty: 'easy' },
@@ -443,104 +394,91 @@ function FlashcardsView({ classId }: { classId: string }) {
     }
   };
 
-  useEffect(() => {
-    fetchFlashcards();
-  }, [classId]);
+  useEffect(() => { fetchFlashcards(); }, [classId]);
 
   const currentCard = flashcards[currentIndex];
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="display text-lg">Flashcards</h2>
-        <Button 
-          variant="primary" 
-          size="sm" 
-          className="flex items-center gap-2"
+    <div className="max-w-lg mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-display-sm text-text-primary">Flashcards</h2>
+        <button
           onClick={fetchFlashcards}
           disabled={loading}
+          className="btn-accent control flex items-center gap-2 px-4 py-2 text-[13px] font-medium rounded-full disabled:opacity-40"
         >
-          {loading ? (
-            <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <IconPlus className="w-4 h-4" />
-          )}
-          {loading ? 'Generating...' : 'Generate Cards'}
-        </Button>
+          {loading ? <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <IconRefresh size={14} />}
+          {loading ? 'Generating...' : 'Regenerate'}
+        </button>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12">
+        <div className="grid place-items-center py-16">
           <div className="w-8 h-8 border-2 border-text-primary border-t-transparent rounded-full animate-spin" />
         </div>
       ) : flashcards.length > 0 ? (
-        <div className="space-y-4">
+        <div>
           {/* Card */}
-          <div
-            className="p-8 surface-panel rounded-lg cursor-pointer min-h-[200px] flex items-center justify-center text-center"
+          <motion.div
+            key={`${currentIndex}-${isFlipped}`}
+            initial={{ rotateY: isFlipped ? -10 : 10, opacity: 0.8 }}
+            animate={{ rotateY: 0, opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            className="surface-elevated grain grain-card p-10 min-h-[240px] flex items-center justify-center text-center cursor-pointer select-none"
             onClick={() => setIsFlipped(!isFlipped)}
           >
             <div>
-              <p className="text-sm text-text-secondary mb-2">
-                {isFlipped ? 'Answer' : 'Question'}
-              </p>
-              <p className="text-lg font-medium text-text-primary">
+              <p className="label-micro mb-3">{isFlipped ? 'ANSWER' : 'QUESTION'}</p>
+              <p className="text-display-md text-text-primary">
                 {isFlipped ? currentCard.back : currentCard.front}
               </p>
-              <p className="text-xs text-text-secondary mt-4">
+              <p className="text-[11px] text-text-faint mt-4">
                 Click to {isFlipped ? 'see question' : 'reveal answer'}
               </p>
               {currentCard.difficulty && (
-                <Badge 
-                  tone={currentCard.difficulty === 'easy' ? 'success' : currentCard.difficulty === 'medium' ? 'warning' : 'error'}
-                >
-                  {currentCard.difficulty}
-                </Badge>
+                <div className="mt-3">
+                  <Badge tone={currentCard.difficulty === 'easy' ? 'success' : currentCard.difficulty === 'medium' ? 'warning' : 'error'}>
+                    {currentCard.difficulty}
+                  </Badge>
+                </div>
               )}
             </div>
-          </div>
+          </motion.div>
 
           {/* Navigation */}
-          <div className="flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setCurrentIndex(Math.max(0, currentIndex - 1));
-                setIsFlipped(false);
-              }}
+          <div className="flex items-center justify-between mt-6">
+            <button
+              onClick={() => { setCurrentIndex(Math.max(0, currentIndex - 1)); setIsFlipped(false); }}
               disabled={currentIndex === 0}
+              className="control px-4 py-2 text-[12px] font-medium text-text-secondary hover:text-text-primary border border-[var(--border)] rounded-full disabled:opacity-30"
             >
               Previous
-            </Button>
-            <span className="text-sm text-text-secondary">
-              {currentIndex + 1} of {flashcards.length}
+            </button>
+            <span className="text-[12px] font-mono text-text-secondary">
+              {currentIndex + 1} / {flashcards.length}
             </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setCurrentIndex(Math.min(flashcards.length - 1, currentIndex + 1));
-                setIsFlipped(false);
-              }}
+            <button
+              onClick={() => { setCurrentIndex(Math.min(flashcards.length - 1, currentIndex + 1)); setIsFlipped(false); }}
               disabled={currentIndex === flashcards.length - 1}
+              className="control px-4 py-2 text-[12px] font-medium text-text-secondary hover:text-text-primary border border-[var(--border)] rounded-full disabled:opacity-30"
             >
               Next
-            </Button>
+            </button>
           </div>
         </div>
       ) : (
-        <div className="text-center py-12">
-          <IconFile className="w-12 h-12 mx-auto text-text-secondary mb-4" />
-          <p className="text-text-secondary">No flashcards yet</p>
-          <p className="text-sm text-text-secondary mt-1">
-            Generate flashcards from your uploaded materials
-          </p>
+        <div className="text-center py-16">
+          <IconFile size={32} className="text-text-faint mx-auto mb-3" />
+          <p className="text-[13px] text-text-secondary">No flashcards yet</p>
         </div>
       )}
     </div>
   );
 }
+
+/* ═══════════════════════════════════════════
+   QUIZ — One-at-a-time premium experience
+   ═══════════════════════════════════════════ */
 
 function QuizView({ classId }: { classId: string }) {
   const [quizState, setQuizState] = useState<'idle' | 'taking' | 'completed'>('idle');
@@ -557,22 +495,10 @@ function QuizView({ classId }: { classId: string }) {
       const data = await generateQuiz(classId, 5);
       setQuestions(data.questions);
       setQuizState('taking');
-    } catch (err) {
-      console.error('Failed to generate quiz:', err);
-      // Fallback
+    } catch {
       setQuestions([
-        {
-          question: 'What is the primary function of mitochondria?',
-          options: ['Protein synthesis', 'ATP production', 'Cell division', 'Waste removal'],
-          correct: 1,
-          explanation: 'Mitochondria generate most of the cell\'s ATP supply.'
-        },
-        {
-          question: 'Which molecule carries energy within cells?',
-          options: ['DNA', 'RNA', 'ATP', 'Glucose'],
-          correct: 2,
-          explanation: 'ATP is the primary energy currency of cells.'
-        }
+        { question: 'What is the primary function of mitochondria?', options: ['Protein synthesis', 'ATP production', 'Cell division', 'Waste removal'], correct: 1, explanation: 'Mitochondria generate most of the cell\'s ATP supply.' },
+        { question: 'Which molecule carries energy within cells?', options: ['DNA', 'RNA', 'ATP', 'Glucose'], correct: 2, explanation: 'ATP is the primary energy currency of cells.' },
       ]);
       setQuizState('taking');
     } finally {
@@ -581,18 +507,15 @@ function QuizView({ classId }: { classId: string }) {
   };
 
   const handleAnswer = (index: number) => {
-    if (selectedAnswer !== null) return; // Already answered
-    
+    if (selectedAnswer !== null) return;
     setSelectedAnswer(index);
     setShowExplanation(true);
-    if (index === questions[currentQuestion].correct) {
-      setScore(score + 1);
-    }
+    if (index === questions[currentQuestion].correct) setScore(s => s + 1);
   };
 
   const nextQuestion = () => {
     if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(currentQuestion + 1);
+      setCurrentQuestion(c => c + 1);
       setSelectedAnswer(null);
       setShowExplanation(false);
     } else {
@@ -601,109 +524,165 @@ function QuizView({ classId }: { classId: string }) {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="display text-lg">Practice Quiz</h2>
+    <div className="max-w-lg mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-display-sm text-text-primary">Practice Quiz</h2>
         {quizState === 'idle' && (
-          <Button variant="primary" size="sm" onClick={startQuiz} disabled={loading}>
+          <button onClick={startQuiz} disabled={loading} className="btn-accent control flex items-center gap-2 px-4 py-2 text-[13px] font-medium rounded-full disabled:opacity-40">
             {loading ? 'Generating...' : 'Start Quiz'}
-          </Button>
+          </button>
         )}
       </div>
 
       {quizState === 'idle' && (
-        <div className="text-center py-12">
-          <IconCheck className="w-12 h-12 mx-auto text-text-secondary mb-4" />
-          <p className="text-text-secondary">Ready to test your knowledge?</p>
-          <p className="text-sm text-text-secondary mt-1">
-            This quiz covers key concepts from your uploaded materials
-          </p>
+        <div className="text-center py-16">
+          <IconCheck size={32} className="text-text-faint mx-auto mb-3" />
+          <p className="text-[13px] text-text-secondary">Ready to test your knowledge?</p>
+          <p className="text-[12px] text-text-faint mt-1">Adaptive questions from your materials</p>
         </div>
       )}
 
       {quizState === 'taking' && questions.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between text-sm text-text-secondary">
+        <div>
+          <div className="flex items-center justify-between text-[12px] text-text-secondary mb-3">
             <span>Question {currentQuestion + 1} of {questions.length}</span>
-            <span>Score: {score}/{currentQuestion + (selectedAnswer !== null ? 1 : 0)}</span>
+            <span className="font-mono">Score: {score}/{currentQuestion + (selectedAnswer !== null ? 1 : 0)}</span>
           </div>
-          
-          <div className="progress-track">
-            <div
-              className="progress-fill"
-              style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
+          <div className="progress-track mb-6">
+            <motion.div
+              className="h-full rounded-full bg-accent"
+              animate={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
+              transition={{ duration: 0.4 }}
             />
           </div>
 
-          <div className="p-6 surface-panel rounded-lg">
-            <p className="text-lg font-medium text-text-primary mb-4">
+          <div className="surface-elevated p-6">
+            <p className="text-display-sm text-text-primary mb-5">
               {questions[currentQuestion].question}
             </p>
             <div className="space-y-2">
-              {questions[currentQuestion].options.map((option, i) => (
-                <button
-                  key={i}
-                  onClick={() => handleAnswer(i)}
-                  disabled={selectedAnswer !== null}
-                  className={`w-full p-3 text-left rounded-lg border transition-colors ${
-                    selectedAnswer === null
-                      ? 'border-border hover:border-border-strong text-text-primary'
-                      : i === questions[currentQuestion].correct
-                      ? 'border-green-500 bg-green-500/10 text-text-primary'
-                      : i === selectedAnswer
-                      ? 'border-red-500 bg-red-500/10 text-text-primary'
-                      : 'border-border opacity-50 text-text-primary'
-                  }`}
-                >
-                  {option}
-                </button>
-              ))}
+              {questions[currentQuestion].options.map((option, i) => {
+                const isCorrect = i === questions[currentQuestion].correct;
+                const isSelected = i === selectedAnswer;
+                const answered = selectedAnswer !== null;
+
+                return (
+                  <button
+                    key={i}
+                    onClick={() => handleAnswer(i)}
+                    disabled={answered}
+                    className={`w-full p-3.5 text-left rounded-card border transition-all text-[13px] ${
+                      !answered
+                        ? 'border-[var(--border)] hover:border-[var(--border-strong)] hover:bg-[var(--ink-soft)] text-text-primary'
+                        : isCorrect
+                          ? 'border-[var(--mastery-mastered)] bg-[var(--success-soft)] text-text-primary'
+                          : isSelected
+                            ? 'border-[var(--mastery-misconception)] bg-[var(--error-soft)] text-text-primary'
+                            : 'border-[var(--border)] opacity-40 text-text-primary'
+                    }`}
+                  >
+                    <span className="font-mono text-[11px] text-text-faint mr-2">{String.fromCharCode(65 + i)}.</span>
+                    {option}
+                  </button>
+                );
+              })}
             </div>
+
             {showExplanation && (
-              <div className="mt-4 p-3 bg-ink-soft rounded-lg">
-                <p className="text-sm text-text-secondary">
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="mt-4 p-3 bg-ink-soft rounded-card"
+              >
+                <p className="text-[12px] text-text-secondary">
                   <strong>Explanation:</strong> {questions[currentQuestion].explanation}
                 </p>
-              </div>
+              </motion.div>
             )}
+
             {selectedAnswer !== null && (
-              <Button
-                variant="primary"
-                size="sm"
-                className="mt-4"
+              <button
                 onClick={nextQuestion}
+                className="btn-accent control mt-4 px-4 py-2 text-[13px] font-medium rounded-full"
               >
                 {currentQuestion < questions.length - 1 ? 'Next Question' : 'See Results'}
-              </Button>
+              </button>
             )}
           </div>
         </div>
       )}
 
       {quizState === 'completed' && (
-        <div className="text-center py-12">
+        <div className="text-center py-16">
           <div className="text-4xl mb-4">{score === questions.length ? '🎉' : '📚'}</div>
-          <p className="text-lg font-medium text-text-primary mb-2">Quiz Complete!</p>
-          <p className="text-text-secondary">
+          <p className="text-display-sm text-text-primary mb-1">Quiz Complete</p>
+          <p className="text-[13px] text-text-secondary mb-4">
             You scored {score} out of {questions.length} ({Math.round((score / questions.length) * 100)}%)
           </p>
-          <Button
-            variant="primary"
-            size="sm"
-            className="mt-4"
-            onClick={() => {
-              setQuizState('idle');
-              setCurrentQuestion(0);
-              setSelectedAnswer(null);
-              setScore(0);
-              setShowExplanation(false);
-              setQuestions([]);
-            }}
+          <button
+            onClick={() => { setQuizState('idle'); setCurrentQuestion(0); setSelectedAnswer(null); setScore(0); setShowExplanation(false); setQuestions([]); }}
+            className="btn-accent control px-4 py-2 text-[13px] font-medium rounded-full"
           >
             Try Again
-          </Button>
+          </button>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════
+   MASTERY — Concept map visualization
+   ═══════════════════════════════════════════ */
+
+function MasteryView() {
+  return (
+    <div className="grid lg:grid-cols-2 gap-6">
+      <div className="surface-panel p-6">
+        <p className="label-caps mb-4">Knowledge Map</p>
+        <LivingKnowledgeField
+          sourceName="All sources"
+          mastery={0.67}
+          practiceScore={{ correct: 23, total: 35 }}
+        />
+      </div>
+      <div className="space-y-4">
+        <div className="surface-panel p-4">
+          <p className="label-caps mb-3">Concept Breakdown</p>
+          <div className="space-y-3">
+            {[
+              { name: 'Glycolysis', mastery: 0.9 },
+              { name: 'Krebs Cycle', mastery: 0.45 },
+              { name: 'Electron Transport', mastery: 0.2 },
+              { name: 'ATP Synthesis', mastery: 0.7 },
+            ].map((concept) => (
+              <div key={concept.name}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[12px] text-text-primary">{concept.name}</span>
+                  <span className="text-[11px] font-mono text-text-secondary">{Math.round(concept.mastery * 100)}%</span>
+                </div>
+                <div className="progress-track">
+                  <motion.div
+                    className="h-full rounded-full"
+                    style={{
+                      backgroundColor: concept.mastery >= 0.7 ? 'var(--mastery-mastered)' : concept.mastery >= 0.4 ? 'var(--mastery-learning)' : 'var(--mastery-attention)',
+                    }}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${concept.mastery * 100}%` }}
+                    transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="surface-panel p-4">
+          <p className="label-caps mb-2">Recommendation</p>
+          <p className="text-[13px] text-text-secondary leading-relaxed">
+            Focus on <strong className="text-text-primary">Electron Transport Chain</strong>, your lowest mastery area. Start with the AI Tutor to build understanding, then quiz yourself.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

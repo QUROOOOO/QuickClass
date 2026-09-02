@@ -20,9 +20,9 @@ const themeInitScript = `
 
 export const metadata: Metadata = {
   icons: { icon: "/favicon.svg" },
-  title: "QuickClass — Your AI-Powered Study Companion",
+  title: "QuickClass — Spatial Editorial Learning",
   description:
-    "Upload your course materials. QuickClass transforms them into an intelligent tutor that teaches, quizzes, and adapts to how you learn.",
+    "Upload your lecture notes, textbooks, and slides. QuickClass builds a living knowledge map — then tutors you through it, adapts to your gaps, and gets you ready for exams.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

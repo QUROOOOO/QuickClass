@@ -1,15 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "motion/react";
-import {
-  IconPlus,
-  IconSpark,
-  IconProjects,
-  IconClock,
-  IconFile,
-  IconArrow,
-} from "@/components/ui/Icon";
+import { motion, AnimatePresence } from "motion/react";
+import { LivingKnowledgeField } from "@/components/spatial/LivingKnowledgeField";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { IconPlus, IconSpark, IconCheck, IconChevronRight } from "@/components/ui/Icon";
 import type { NavView } from "@/components/layout/Sidebar";
 
 interface DashboardViewProps {
@@ -18,195 +14,262 @@ interface DashboardViewProps {
 
 const DEMO_CLASSES = [
   {
-    id: "bio-101",
-    name: "Biology 101",
-    sources: 12,
-    lastStudied: "2 hours ago",
-    progress: 68,
+    id: "1",
+    name: "Cellular Respiration",
     emoji: "🧬",
+    sources: 4,
+    mastery: 0.72,
+    lastStudied: "2 hours ago",
+    weakAreas: ["Krebs Cycle", "Electron Transport Chain"],
   },
   {
-    id: "chem-201",
+    id: "2",
     name: "Organic Chemistry",
-    sources: 8,
-    lastStudied: "Yesterday",
-    progress: 42,
     emoji: "⚗️",
+    sources: 6,
+    mastery: 0.45,
+    lastStudied: "Yesterday",
+    weakAreas: ["Stereochemistry", "Reaction Mechanisms"],
   },
   {
-    id: "hist-301",
+    id: "3",
     name: "World History",
-    sources: 15,
-    lastStudied: "3 days ago",
-    progress: 85,
     emoji: "🌍",
+    sources: 3,
+    mastery: 0.85,
+    lastStudied: "3 days ago",
+    weakAreas: [],
   },
 ];
 
-const QUICK_ACTIONS = [
-  {
-    id: "create",
-    label: "Create Class",
-    description: "Start a new subject",
-    icon: IconPlus,
-    accent: false,
-  },
-  {
-    id: "upload",
-    label: "Upload Notes",
-    description: "Add study materials",
-    icon: IconFile,
-    accent: false,
-  },
-  {
-    id: "quiz",
-    label: "Quick Quiz",
-    description: "Test your knowledge",
-    icon: IconSpark,
-    accent: true,
-  },
-];
+function MasteryBar({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-[11px] text-text-secondary w-24 truncate">{label}</span>
+      <div className="flex-1 progress-track">
+        <motion.div
+          className="h-full rounded-full"
+          style={{
+            backgroundColor:
+              value >= 0.7
+                ? "var(--mastery-mastered)"
+                : value >= 0.4
+                  ? "var(--mastery-learning)"
+                  : "var(--mastery-attention)",
+          }}
+          initial={{ width: 0 }}
+          animate={{ width: `${value * 100}%` }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        />
+      </div>
+      <span className="text-[11px] font-mono text-text-secondary w-8 text-right">
+        {Math.round(value * 100)}%
+      </span>
+    </div>
+  );
+}
+
+function QuickAction({
+  icon,
+  title,
+  description,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="surface-panel p-4 text-left group hover:shadow-soft transition-all duration-200"
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div className="w-8 h-8 rounded-card bg-accent-soft flex items-center justify-center group-hover:bg-accent transition-colors group-hover:text-white">
+          {icon}
+        </div>
+        <IconChevronRight size={14} className="text-text-faint group-hover:text-text-secondary transition-colors" />
+      </div>
+      <h3 className="text-[13px] font-semibold text-text-primary mb-0.5">{title}</h3>
+      <p className="text-[12px] text-text-secondary leading-relaxed">{description}</p>
+    </button>
+  );
+}
 
 export function DashboardView({ onNavigate }: DashboardViewProps) {
-  const [hoveredClass, setHoveredClass] = useState<string | null>(null);
+  const [selectedClass, setSelectedClass] = useState<string | null>(null);
 
   return (
-    <div className="px-6 py-8 max-w-5xl mx-auto space-y-8">
+    <div className="max-w-5xl mx-auto px-6 py-10">
       {/* Header */}
-      <div>
-        <h1 className="display text-display-lg text-text-primary">
-          Welcome back
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="mb-10"
+      >
+        <p className="label-caps mb-2">Dashboard</p>
+        <h1 className="text-display-xl text-text-primary">
+          Your learning cockpit
         </h1>
-        <p className="text-[15px] text-text-secondary mt-1">
-          Pick up where you left off, or start something new.
+        <p className="text-[14px] text-text-secondary mt-2">
+          Track progress across all your subjects. Pick up where you left off.
         </p>
-      </div>
+      </motion.div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {QUICK_ACTIONS.map((action) => {
-          const Icon = action.icon;
-          return (
+      {/* Quick actions */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-10"
+      >
+        <QuickAction
+          icon={<IconPlus size={14} className="text-accent" />}
+          title="New Class"
+          description="Start a new subject"
+          onClick={() => onNavigate("classes")}
+        />
+        <QuickAction
+          icon={<IconSpark size={14} className="text-accent" />}
+          title="Quick Quiz"
+          description="Test your knowledge"
+          onClick={() => {}}
+        />
+        <QuickAction
+          icon={<IconCheck size={14} className="text-accent" />}
+          title="Review Due"
+          description="3 flashcards due"
+          onClick={() => {}}
+        />
+      </motion.div>
+
+      {/* Main grid: classes + weak areas */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Recent classes — left 2 cols */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+          className="lg:col-span-2 space-y-3"
+        >
+          <div className="flex items-center justify-between mb-1">
+            <p className="label-caps">Recent Classes</p>
             <button
-              key={action.id}
-              onClick={() => {
-                if (action.id === "create" || action.id === "upload") {
-                  onNavigate("classes");
-                }
-              }}
-              className="control group surface-panel rounded-panel p-4 text-left
-                hover:shadow-lifted transition-all duration-200"
+              onClick={() => onNavigate("classes")}
+              className="text-[11px] font-medium text-text-secondary hover:text-text-primary transition-colors"
             >
-              <div className="flex items-start justify-between">
-                <div
-                  className={`w-9 h-9 rounded-card grid place-items-center ${
-                    action.accent
-                      ? "bg-[#ED6A2F]/10 text-[#ED6A2F]"
-                      : "bg-ink-soft text-text-secondary"
-                  }`}
-                >
-                  <Icon size={18} />
-                </div>
-                <IconArrow
-                  size={14}
-                  className="text-text-faint opacity-0 group-hover:opacity-100
-                    transition-opacity duration-200 mt-1"
-                />
-              </div>
-              <p className="text-[13px] font-medium text-text-primary mt-3">
-                {action.label}
-              </p>
-              <p className="text-[12px] text-text-secondary mt-0.5">
-                {action.description}
-              </p>
+              View all
             </button>
-          );
-        })}
-      </div>
+          </div>
 
-      {/* Recent Classes */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[13px] font-semibold text-text-primary label-caps">
-            Recent Classes
-          </h2>
-          <button
-            onClick={() => onNavigate("classes")}
-            className="control text-[12px] text-text-secondary hover:text-text-primary
-              transition-colors flex items-center gap-1"
-          >
-            View all
-            <IconArrow size={12} />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {DEMO_CLASSES.map((cls) => (
+          {DEMO_CLASSES.map((cls, i) => (
             <motion.button
               key={cls.id}
-              onHoverStart={() => setHoveredClass(cls.id)}
-              onHoverEnd={() => setHoveredClass(null)}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.15 + i * 0.08 }}
               onClick={() => onNavigate("classes")}
-              className="control surface-panel rounded-panel p-4 text-left
-                hover:shadow-lifted transition-all duration-200 group"
+              className={`w-full surface-panel p-4 text-left group hover:shadow-soft transition-all duration-200 ${
+                selectedClass === cls.id ? "ring-1 ring-[var(--border-strong)]" : ""
+              }`}
             >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">{cls.emoji}</span>
-                  <div>
-                    <p className="text-[13px] font-medium text-text-primary">
-                      {cls.name}
-                    </p>
-                    <p className="text-[11px] text-text-secondary flex items-center gap-1.5 mt-0.5">
-                      <IconFile size={10} />
-                      {cls.sources} sources
-                      <span className="text-text-faint">·</span>
-                      <IconClock size={10} />
-                      {cls.lastStudied}
-                    </p>
+              <div className="flex items-start gap-4">
+                <span className="text-2xl flex-shrink-0 mt-0.5">{cls.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-[14px] font-semibold text-text-primary truncate">{cls.name}</h3>
+                    <Badge
+                      tone={cls.mastery >= 0.7 ? "success" : cls.mastery >= 0.4 ? "info" : "warning"}
+                    >
+                      {Math.round(cls.mastery * 100)}%
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-text-secondary mb-2.5">
+                    {cls.sources} sources, last studied {cls.lastStudied}
+                  </p>
+                  <div className="progress-track">
+                    <motion.div
+                      className="h-full rounded-full"
+                      style={{
+                        backgroundColor:
+                          cls.mastery >= 0.7
+                            ? "var(--mastery-mastered)"
+                            : cls.mastery >= 0.4
+                              ? "var(--mastery-learning)"
+                              : "var(--mastery-attention)",
+                      }}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${cls.mastery * 100}%` }}
+                      transition={{ duration: 0.8, delay: 0.3 + i * 0.1, ease: [0.16, 1, 0.3, 1] }}
+                    />
                   </div>
                 </div>
-                <IconArrow
-                  size={14}
-                  className="text-text-faint opacity-0 group-hover:opacity-100
-                    transition-opacity duration-200 shrink-0 mt-0.5"
-                />
+                <IconChevronRight size={14} className="text-text-faint group-hover:text-text-secondary transition-colors mt-1 flex-shrink-0" />
               </div>
-
-              {/* Progress bar */}
-              <div className="mt-3 progress-track">
-                <div
-                  className="progress-fill"
-                  style={{ width: `${cls.progress}%` }}
-                />
-              </div>
-              <p className="text-[10px] text-text-faint mt-1.5 label-micro">
-                {cls.progress}% mastered
-              </p>
             </motion.button>
           ))}
-        </div>
-      </div>
+        </motion.div>
 
-      {/* Study Streak */}
-      <div className="surface-panel rounded-panel p-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-card bg-ink-soft grid place-items-center">
-            <IconProjects size={20} className="text-text-secondary" />
+        {/* Right column — weak areas + streak */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.3 }}
+          className="space-y-4"
+        >
+          {/* Weak areas */}
+          <div className="surface-panel p-4">
+            <p className="label-caps mb-3">Needs Attention</p>
+            <div className="space-y-2.5">
+              {DEMO_CLASSES.flatMap((cls) =>
+                cls.weakAreas.map((area) => ({ area, cls: cls.name, emoji: cls.emoji }))
+              ).map((item, i) => (
+                <div key={i} className="flex items-center gap-2.5 py-1.5 border-b border-[var(--border)] last:border-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--mastery-attention)] flex-shrink-0" />
+                  <span className="text-[12px] text-text-primary flex-1 truncate">{item.area}</span>
+                  <span className="text-[10px] text-text-faint">{item.emoji}</span>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="flex-1">
-            <p className="text-[13px] font-medium text-text-primary">
-              Study Streak
-            </p>
-            <p className="text-[12px] text-text-secondary">
-              You&apos;ve studied 5 days in a row. Keep it up!
-            </p>
+
+          {/* Study streak */}
+          <div className="surface-panel p-4">
+            <p className="label-caps mb-3">Study Streak</p>
+            <div className="flex items-baseline gap-1.5 mb-2">
+              <span className="text-display-xl text-text-primary">7</span>
+              <span className="text-[12px] text-text-secondary">days</span>
+            </div>
+            <div className="flex gap-1">
+              {["M", "T", "W", "T", "F", "S", "S"].map((day, i) => (
+                <div
+                  key={i}
+                  className={`flex-1 h-6 rounded-sm flex items-center justify-center text-[9px] font-medium ${
+                    i < 6
+                      ? "bg-accent text-white"
+                      : "bg-ink-soft text-text-faint"
+                  }`}
+                >
+                  {day}
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="text-right">
-            <p className="display text-display-md text-text-primary">5</p>
-            <p className="text-[10px] text-text-faint label-micro">days</p>
+
+          {/* Mastery overview — mini LivingKnowledgeField */}
+          <div className="surface-panel p-4">
+            <p className="label-caps mb-3">Mastery Overview</p>
+            <LivingKnowledgeField
+              compact
+              sourceName="All classes"
+              mastery={0.67}
+              practiceScore={{ correct: 23, total: 35 }}
+              interactive={false}
+            />
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

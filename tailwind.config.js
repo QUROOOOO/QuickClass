@@ -8,6 +8,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        page: "var(--page)",
         outer: "var(--outer)",
         shell: "var(--shell)",
         canvas: "var(--shell)",
@@ -15,6 +16,7 @@ module.exports = {
         "surface-secondary": "var(--surface-secondary)",
         "surface-elevated": "var(--surface-elevated)",
         "surface-tertiary": "var(--surface-secondary)",
+        "surface-tint": "var(--surface-tint)",
         "text-primary": "var(--text-primary)",
         "text-secondary": "var(--text-secondary)",
         "text-faint": "var(--text-faint)",
@@ -25,21 +27,27 @@ module.exports = {
         accent: "var(--accent)",
         "accent-strong": "var(--accent-strong)",
         "accent-soft": "var(--accent-soft)",
+        "accent-softer": "var(--accent-softer)",
         "accent-dark": "var(--text-primary)",
         ink: "var(--ink)",
         "ink-strong": "var(--ink-strong)",
         "ink-soft": "var(--ink-soft)",
         "ink-soft-strong": "var(--ink-soft-strong)",
         sidebar: "var(--sidebar)",
+        "sidebar-bg": "var(--sidebar-bg)",
         "sidebar-elevated": "var(--sidebar-elevated)",
         success: "var(--success)",
-        "success-soft": "color-mix(in srgb, var(--success) 12%, transparent)",
+        "success-soft": "var(--success-soft)",
         warning: "var(--warning)",
-        "warning-soft": "color-mix(in srgb, var(--warning) 14%, transparent)",
+        "warning-soft": "var(--warning-soft)",
         error: "var(--error)",
-        "error-soft": "color-mix(in srgb, var(--error) 12%, transparent)",
-        info: "var(--text-secondary)",
-        "info-soft": "color-mix(in srgb, var(--text-secondary) 12%, transparent)",
+        "error-soft": "var(--error-soft)",
+        info: "var(--info)",
+        "info-soft": "var(--info-soft)",
+        "mastery-mastered": "var(--mastery-mastered)",
+        "mastery-learning": "var(--mastery-learning)",
+        "mastery-attention": "var(--mastery-attention)",
+        "mastery-misconception": "var(--mastery-misconception)",
       },
       fontFamily: {
         sans: ["var(--font-geist)", "ui-sans-serif", "system-ui", "sans-serif"],
@@ -47,11 +55,11 @@ module.exports = {
         mono: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
       },
       fontSize: {
-        "display-2xl": ["44px", { lineHeight: "1.05", letterSpacing: "-0.02em", fontWeight: "650" }],
-        "display-xl": ["36px", { lineHeight: "1.08", letterSpacing: "-0.02em", fontWeight: "650" }],
-        "display-lg": ["30px", { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "650" }],
-        "display-md": ["24px", { lineHeight: "1.15", letterSpacing: "-0.015em", fontWeight: "650" }],
-        "display-sm": ["20px", { lineHeight: "1.2", letterSpacing: "-0.01em", fontWeight: "650" }],
+        "display-2xl": ["48px", { lineHeight: "1.04", letterSpacing: "-0.03em", fontWeight: "650" }],
+        "display-xl": ["38px", { lineHeight: "1.06", letterSpacing: "-0.028em", fontWeight: "650" }],
+        "display-lg": ["30px", { lineHeight: "1.1", letterSpacing: "-0.025em", fontWeight: "640" }],
+        "display-md": ["22px", { lineHeight: "1.18", letterSpacing: "-0.015em", fontWeight: "630" }],
+        "display-sm": ["18px", { lineHeight: "1.22", letterSpacing: "-0.01em", fontWeight: "620" }],
       },
       borderRadius: {
         shell: "var(--radius-shell)",
@@ -75,7 +83,7 @@ module.exports = {
       },
       keyframes: {
         "fade-up": {
-          "0%": { opacity: "0", transform: "translateY(8px)" },
+          "0%": { opacity: "0", transform: "translateY(10px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
         "fade-in": {
@@ -83,7 +91,7 @@ module.exports = {
           "100%": { opacity: "1" },
         },
         "scale-in": {
-          "0%": { opacity: "0", transform: "scale(0.97)" },
+          "0%": { opacity: "0", transform: "scale(0.96)" },
           "100%": { opacity: "1", transform: "scale(1)" },
         },
         "draw-line": {
@@ -94,12 +102,21 @@ module.exports = {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.35" },
         },
+        "float-subtle": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-4px)" },
+        },
+        "ring-fill": {
+          "0%": { strokeDashoffset: "283" },
+          "100%": { strokeDashoffset: "var(--ring-target)" },
+        },
       },
       animation: {
         "fade-up": "fade-up 500ms cubic-bezier(0.16, 1, 0.3, 1) both",
         "fade-in": "fade-in 400ms ease-out both",
-        "scale-in": "scale-in 300ms cubic-bezier(0.16, 1, 0.3, 1) both",
+        "scale-in": "scale-in 350ms cubic-bezier(0.16, 1, 0.3, 1) both",
         "pulse-dot": "pulse-dot 1.8s ease-in-out infinite",
+        "float-subtle": "float-subtle 4s ease-in-out infinite",
       },
     },
   },
