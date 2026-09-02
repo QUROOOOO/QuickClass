@@ -1,516 +1,386 @@
 """QuickClass API — AI-powered study companion backend."""
 from __future__ import annotations
-
 import os
 import time
 import uuid
 from typing import Optional
 
-from fastapi import FastAPI, File, Request, UploadFile
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from app.config import get_settings
-from app.errors import ApiError, ErrorDetail
+from .ai.llm import chat_completion
+from .ai.embeddings import embed_query, embed_documents
+from .ai.prompts import (
+    SYSTEM_TUTOR, TUTOR_USER, TUTOR_USER_NO_SOURCES,
+    SYSTEM_QUIZ, QUIZ_USER, SYSTEM_FLASHCARD, FLASHCARD_USER,
+    SYSTEM_DIAGNOSTIC, DIAGNOSTIC_USER,
+    SYSTEM_LEARNER_PROFILE, LEARNER_PROFILE_USER,
+    MISCONCEPTION_DETECTION, NEXT_BEST_ACTION,
+)
+from .services.ingestion import extract_text, chunk_text, get_source_stats
+from .services.rag import search_chunks, build_source_context, format_citations
+from .services.adaptive import select_quiz_questions, calculate_score, update_profile_from_quiz
+from .services.spaced import FlashcardState, review_card, get_due_cards, get_card_stats
+from .models.learner import LearnerProfile
+from .db import sqlite as db
 
-settings = get_settings()
-
-app = FastAPI(title=settings.app_name, version="0.1.0", docs_url="/docs", openapi_url="/openapi.json")
+app = FastAPI(title="QuickClass API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# In-memory stores for demo
-app.state.users = []
-app.state.classes = []
-app.state.sources = []
-app.state.source_content = {}  # source_id -> extracted text chunks
+# In-memory stores for flashcard review state
+_flashcard_states: dict[str, dict[str, FlashcardState]] = {}  # class_id -> {card_id: state}
 
 
-@app.exception_handler(ApiError)
-async def api_error_handler(request: Request, exc: ApiError):
-    return JSONResponse(status_code=exc.status, content=ErrorDetail(**exc.__dict__).model_dump())
-
-
-@app.middleware("http")
-async def timing_middleware(request: Request, call_next):
-    start = time.perf_counter()
-    response = await call_next(request)
-    response.headers["X-Request-Time-Ms"] = f"{(time.perf_counter() - start) * 1000:.1f}"
-    return response
-
+# ── Health ──
 
 @app.get("/health")
-def health():
-    return {"ok": True, "app": settings.app_name, "env": settings.env, "time": time.time()}
+async def health():
+    return {"ok": True, "app": "QuickClass API"}
 
 
-# ── Classes ────────────────────────────────────────────────
+# ── Classes ──
+
+@app.get("/api/v1/classes")
+async def list_classes():
+    return db.list_classes()
 
 
-class ClassCreate(BaseModel):
+class CreateClassRequest(BaseModel):
     name: str
     emoji: str = "📚"
     description: str = ""
 
 
-class ClassResponse(BaseModel):
-    id: str
-    name: str
-    emoji: str
-    description: str
-    sources: int = 0
-    progress: int = 0
-
-
-@app.get("/api/v1/classes")
-def list_classes():
-    return app.state.classes
-
-
-@app.post("/api/v1/classes", status_code=201)
-def create_class(body: ClassCreate):
-    cls = {
-        "id": f"cls-{uuid.uuid4().hex[:8]}",
-        "name": body.name,
-        "emoji": body.emoji,
-        "description": body.description,
-        "sources": 0,
-        "progress": 0,
-    }
-    app.state.classes.insert(0, cls)
+@app.post("/api/v1/classes")
+async def create_class(req: CreateClassRequest):
+    cls = db.create_class(req.name, req.emoji, req.description)
     return cls
 
 
 @app.get("/api/v1/classes/{class_id}")
-def get_class(class_id: str):
-    for cls in app.state.classes:
-        if cls["id"] == class_id:
-            return cls
-    return JSONResponse(status_code=404, content={"detail": "Class not found"})
+async def get_class(class_id: str):
+    cls = db.get_class(class_id)
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+    return cls
 
 
-@app.delete("/api/v1/classes/{class_id}", status_code=204)
-def delete_class(class_id: str):
-    app.state.classes = [c for c in app.state.classes if c["id"] != class_id]
+@app.delete("/api/v1/classes/{class_id}")
+async def delete_class(class_id: str):
+    db.delete_class(class_id)
+    return {"ok": True}
 
 
-# ── Sources ────────────────────────────────────────────────
-
-class SourceCreate(BaseModel):
-    class_id: str
-    name: str
-    type: str = "document"  # document, url, text
-    content: Optional[str] = None
-
-
-class SourceResponse(BaseModel):
-    id: str
-    class_id: str
-    name: str
-    type: str
-    status: str = "processing"
-    chunks: int = 0
-    size: str = ""
-
-
-def extract_text_from_pdf(content: bytes) -> str:
-    """Extract text from PDF using pypdf."""
-    try:
-        from pypdf import PdfReader
-        import io
-        reader = PdfReader(io.BytesIO(content))
-        text_parts = []
-        for page in reader.pages:
-            text = page.extract_text()
-            if text:
-                text_parts.append(text)
-        return "\n\n".join(text_parts)
-    except Exception as e:
-        return f"[Error extracting PDF: {str(e)}]"
-
-
-def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 200) -> list[str]:
-    """Split text into overlapping chunks for RAG."""
-    if not text:
-        return []
-    
-    chunks = []
-    start = 0
-    while start < len(text):
-        end = start + chunk_size
-        chunk = text[start:end]
-        
-        # Try to break at sentence boundary
-        if end < len(text):
-            last_period = chunk.rfind('.')
-            last_newline = chunk.rfind('\n')
-            break_point = max(last_period, last_newline)
-            if break_point > chunk_size * 0.5:  # At least 50% of chunk
-                chunk = chunk[:break_point + 1]
-                end = start + break_point + 1
-        
-        chunks.append(chunk.strip())
-        start = end - overlap
-    
-    return [c for c in chunks if c]  # Remove empty chunks
-
+# ── Sources ──
 
 @app.get("/api/v1/classes/{class_id}/sources")
-def list_sources(class_id: str):
-    return [s for s in app.state.sources if s["class_id"] == class_id]
+async def list_sources(class_id: str):
+    return db.list_sources(class_id)
 
 
-@app.post("/api/v1/classes/{class_id}/sources", status_code=201)
-def create_source(class_id: str, body: SourceCreate):
-    source = {
-        "id": f"src-{uuid.uuid4().hex[:8]}",
-        "class_id": class_id,
-        "name": body.name,
-        "type": body.type,
-        "status": "ready",  # demo: instant ready
-        "chunks": 42,
-        "size": "1.2 MB",
-    }
-    app.state.sources.append(source)
-    
-    # Store content if provided
-    if body.content:
-        chunks = chunk_text(body.content)
-        app.state.source_content[source["id"]] = chunks
-    
-    # Update class source count
-    for cls in app.state.classes:
-        if cls["id"] == class_id:
-            cls["sources"] = len([s for s in app.state.sources if s["class_id"] == class_id])
-    return source
+class CreateSourceRequest(BaseModel):
+    name: str
+    type: str = "text"
+    content: str = ""
 
 
-@app.post("/api/v1/classes/{class_id}/sources/upload", status_code=201)
+@app.post("/api/v1/classes/{class_id}/sources")
+async def create_source(class_id: str, req: CreateSourceRequest):
+    source = db.create_source(class_id=class_id, name=req.name, source_type=req.type, size=len(req.content))
+    if req.content.strip():
+        chunks = chunk_text(req.content)
+        db.store_chunks(source["id"], chunks)
+        stats = get_source_stats(req.content)
+        db.update_source_status(source["id"], "ready", len(chunks), stats["words"])
+        return {**source, "status": "ready", "chunk_count": len(chunks), "word_count": stats["words"]}
+    return {**source, "status": "ready"}
+
+
+@app.post("/api/v1/classes/{class_id}/sources/upload")
 async def upload_source(class_id: str, file: UploadFile = File(...)):
-    """Upload a file as a source. Accepts PDF, DOCX, TXT, MD, images."""
     content = await file.read()
-    size_bytes = len(content)
-    if size_bytes < 1024:
-        size_str = f"{size_bytes} B"
-    elif size_bytes < 1024 * 1024:
-        size_str = f"{size_bytes / 1024:.1f} KB"
-    else:
-        size_str = f"{size_bytes / (1024 * 1024):.1f} MB"
+    filename = file.filename or "uploaded_file"
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "txt"
+    type_map = {"pdf": "pdf", "txt": "text", "md": "text", "docx": "document",
+                "png": "image", "jpg": "image", "jpeg": "image"}
+    source_type = type_map.get(ext, "document")
 
-    # Determine type from extension
-    ext = os.path.splitext(file.filename or "")[1].lower()
-    type_map = {
-        ".pdf": "pdf",
-        ".docx": "docx",
-        ".doc": "docx",
-        ".txt": "text",
-        ".md": "text",
-        ".png": "image",
-        ".jpg": "image",
-        ".jpeg": "image",
-    }
-    file_type = type_map.get(ext, "document")
-    
-    # Extract text based on file type
-    extracted_text = ""
-    if ext == ".pdf":
-        extracted_text = extract_text_from_pdf(content)
-    elif ext in [".txt", ".md"]:
-        try:
-            extracted_text = content.decode("utf-8")
-        except UnicodeDecodeError:
-            extracted_text = content.decode("latin-1")
-    elif ext in [".png", ".jpg", ".jpeg"]:
-        # For images, we'll just note it's an image (OCR would go here)
-        extracted_text = f"[Image file: {file.filename}]"
-    else:
-        # Try to read as text
-        try:
-            extracted_text = content.decode("utf-8")
-        except UnicodeDecodeError:
-            extracted_text = f"[Binary file: {file.filename}]"
-    
-    # Chunk the extracted text
-    chunks = chunk_text(extracted_text)
-    
-    source = {
-        "id": f"src-{uuid.uuid4().hex[:8]}",
-        "class_id": class_id,
-        "name": file.filename or "Untitled",
-        "type": file_type,
-        "status": "ready" if chunks else "empty",
-        "chunks": len(chunks),
-        "size": size_str,
-    }
-    app.state.sources.append(source)
-    
-    # Store the chunks for RAG
-    app.state.source_content[source["id"]] = chunks
-    
-    # Update class source count
-    for cls in app.state.classes:
-        if cls["id"] == class_id:
-            cls["sources"] = len([s for s in app.state.sources if s["class_id"] == class_id])
-    
-    return source
+    # Create source record
+    source = db.create_source(
+        class_id=class_id, name=filename, source_type=source_type,
+        size=len(content), status="processing",
+    )
+
+    # Extract and chunk text
+    try:
+        text = extract_text(content, ext)
+        if text.strip():
+            chunks = chunk_text(text)
+            db.store_chunks(source["id"], chunks)
+            stats = get_source_stats(text)
+            db.update_source_status(source["id"], "ready", len(chunks), stats["words"])
+            return {**source, "status": "ready", "chunk_count": len(chunks),
+                    "word_count": stats["words"], "page_count": stats["pages"]}
+        else:
+            db.update_source_status(source["id"], "empty", 0, 0)
+            return {**source, "status": "empty", "chunk_count": 0}
+    except Exception as e:
+        db.update_source_status(source["id"], "error", 0, 0)
+        raise HTTPException(status_code=422, detail=f"Failed to process file: {str(e)}")
 
 
-@app.delete("/api/v1/classes/{class_id}/sources/{source_id}", status_code=204)
-def delete_source(class_id: str, source_id: str):
-    app.state.sources = [s for s in app.state.sources if not (s["class_id"] == class_id and s["id"] == source_id)]
-    # Clean up content
-    if source_id in app.state.source_content:
-        del app.state.source_content[source_id]
-    for cls in app.state.classes:
-        if cls["id"] == class_id:
-            cls["sources"] = len([s for s in app.state.sources if s["class_id"] == class_id])
+@app.delete("/api/v1/classes/{class_id}/sources/{source_id}")
+async def delete_source(class_id: str, source_id: str):
+    db.delete_source(source_id)
+    return {"ok": True}
 
 
-# ── Chat (AI Tutor) ────────────────────────────────────────
+# ── Chat (AI Tutor) ──
 
-class ChatMessage(BaseModel):
-    message: str
+class ChatRequest(BaseModel):
     class_id: str
-
-
-def find_relevant_chunks(message: str, class_id: str, top_k: int = 3) -> list[dict]:
-    """Find relevant chunks from sources for the given message."""
-    message_lower = message.lower()
-    results = []
-    
-    for source in app.state.sources:
-        if source["class_id"] != class_id:
-            continue
-        
-        source_id = source["id"]
-        if source_id not in app.state.source_content:
-            continue
-        
-        chunks = app.state.source_content[source_id]
-        for i, chunk in enumerate(chunks):
-            # Simple keyword matching (in production, use embeddings)
-            chunk_lower = chunk.lower()
-            words = message_lower.split()
-            matches = sum(1 for word in words if word in chunk_lower)
-            score = matches / len(words) if words else 0
-            
-            if score > 0.1:  # At least 10% keyword overlap
-                results.append({
-                    "source_name": source["name"],
-                    "chunk_index": i,
-                    "content": chunk[:500],  # First 500 chars
-                    "relevance": round(score, 2),
-                })
-    
-    # Sort by relevance and return top_k
-    results.sort(key=lambda x: x["relevance"], reverse=True)
-    return results[:top_k]
+    message: str
+    history: list[dict] = []
 
 
 @app.post("/api/v1/chat")
-def chat(body: ChatMessage):
-    # Find relevant chunks from uploaded sources
-    relevant_chunks = find_relevant_chunks(body.message, body.class_id)
-    
-    if relevant_chunks:
-        # Build context from relevant chunks
-        context = "\n\n".join([f"[Source: {c['source_name']}]\n{c['content']}" for c in relevant_chunks])
-        
-        # Generate a response based on the context (demo: echo with context)
-        response = f"Based on your uploaded materials, here's what I found:\n\n"
-        response += f"I found {len(relevant_chunks)} relevant section(s) from your sources.\n\n"
-        response += f"**Key points:**\n"
-        for i, chunk in enumerate(relevant_chunks[:3], 1):
-            # Extract first sentence or so
-            first_sentence = chunk['content'].split('.')[0] + '.'
-            response += f"{i}. {first_sentence}\n"
-        
-        response += f"\nWould you like me to explain any of these concepts in more detail?"
-        
-        sources = [
-            {"name": c["source_name"], "relevance": c["relevance"]}
-            for c in relevant_chunks
-        ]
+async def chat(req: ChatRequest):
+    # Get relevant source chunks via RAG
+    chunks = db.get_chunks(req.class_id)
+    context_text = " ".join(c["content"] for c in chunks) if chunks else ""
+
+    results = []
+    if context_text.strip():
+        results = search_chunks(req.message, chunks, top_k=3)
+        source_context = build_source_context(results)
     else:
-        # No relevant sources found
-        response = f"I understand you're asking about: '{body.message}'. "
-        response += "I don't have any uploaded materials that match this topic yet. "
-        response += "Try uploading some notes or textbooks, and I'll be able to help you better!"
-        sources = []
-    
-    return {
-        "response": response,
-        "sources": sources,
-    }
+        source_context = ""
+
+    # Build messages for LLM
+    system = SYSTEM_TUTOR
+    if source_context:
+        user_msg = TUTOR_USER.format(source_context=source_context, question=req.message)
+    else:
+        user_msg = TUTOR_USER_NO_SOURCES.format(question=req.message)
+
+    messages = [{"role": "system", "content": system}, {"role": "user", "content": user_msg}]
+    for h in req.history[-6:]:
+        messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
+
+    response = await chat_completion(messages)
+    citations = format_citations(results) if results else []
+
+    # Save chat history
+    db.save_chat(req.class_id, "user", req.message)
+    db.save_chat(req.class_id, "assistant", response, citations)
+
+    # Update learner profile from interaction
+    profile = _get_or_create_profile(req.class_id)
+    profile.add_history("chat", {"message": req.message[:100]})
+    db.save_learner_profile(req.class_id, "default", profile.to_dict())
+
+    return {"response": response, "sources": citations}
 
 
-# ── Quiz ───────────────────────────────────────────────────
+# ── Quiz ──
 
 class QuizRequest(BaseModel):
     class_id: str
-    topic: str = ""
     count: int = 5
-
-
-class QuizQuestion(BaseModel):
-    question: str
-    options: list[str]
-    correct: int
-    explanation: str
+    topic: str = ""
 
 
 @app.post("/api/v1/quiz")
-def generate_quiz(body: QuizRequest):
-    # Check if we have sources for this class
-    class_sources = [s for s in app.state.sources if s["class_id"] == body.class_id]
-    
-    if class_sources:
-        # In production, generate quiz from source content
-        # For demo, return source-aware questions
-        source_names = [s["name"] for s in class_sources[:3]]
+async def generate_quiz(req: QuizRequest):
+    # Get source chunks for source-aware questions
+    chunks = db.get_chunks(req.class_id)
+    context_text = " ".join(c["content"] for c in chunks) if chunks else ""
+
+    messages = [{"role": "system", "content": SYSTEM_QUIZ}]
+    user_msg = QUIZ_USER.format(
+        count=req.count,
+        source_context=context_text[:3000] if context_text else "General knowledge",
+        easy_count=req.count // 3, medium_count=req.count // 3, hard_count=req.count - 2 * (req.count // 3),
+        topic_requirement="",
+    )
+    messages.append({"role": "user", "content": user_msg})
+
+    response = await chat_completion(messages, response_format={"type": "json_object"})
+
+    import json
+    try:
+        data = json.loads(response)
+        questions = data.get("questions", [])
+    except (json.JSONDecodeError, TypeError):
+        # Fallback demo questions
         questions = [
-            {
-                "question": f"Based on {source_names[0] if source_names else 'your materials'}, what is the main concept discussed?",
-                "options": [
-                    "Concept A",
-                    "Concept B",
-                    "Concept C",
-                    "Concept D",
-                ],
-                "correct": 0,
-                "explanation": f"This concept is covered in {source_names[0] if source_names else 'your uploaded materials'}.",
-            },
-            {
-                "question": "Which of the following is a key takeaway from the materials?",
-                "options": [
-                    "Key takeaway 1",
-                    "Key takeaway 2",
-                    "Key takeaway 3",
-                    "Key takeaway 4",
-                ],
-                "correct": 1,
-                "explanation": "This is an important point to remember from your studies.",
-            },
+            {"question": "What is the powerhouse of the cell?", "options": ["Nucleus", "Mitochondria", "Ribosome", "Endoplasmic Reticulum"], "correct": 1, "explanation": "Mitochondria produce ATP through cellular respiration.", "topic": "Cell Biology"},
+            {"question": "What process converts sunlight to chemical energy?", "options": ["Respiration", "Fermentation", "Photosynthesis", "Transcription"], "correct": 2, "explanation": "Photosynthesis uses light energy to synthesize glucose.", "topic": "Plant Biology"},
+            {"question": "What is the function of ribosomes?", "options": ["Energy production", "Protein synthesis", "DNA replication", "Cell division"], "correct": 1, "explanation": "Ribosomes translate mRNA into amino acid sequences.", "topic": "Cell Biology"},
         ]
-    else:
-        # Default quiz when no sources
-        questions = [
-            {
-                "question": "What is the primary function of mitochondria?",
-                "options": [
-                    "Protein synthesis",
-                    "ATP production (cellular respiration)",
-                    "DNA replication",
-                    "Cell division",
-                ],
-                "correct": 1,
-                "explanation": "Mitochondria are known as the powerhouse of the cell because they generate most of the cell's ATP through oxidative phosphorylation.",
-            },
-            {
-                "question": "Which organelle is responsible for photosynthesis?",
-                "options": [
-                    "Ribosome",
-                    "Golgi apparatus",
-                    "Chloroplast",
-                    "Endoplasmic reticulum",
-                ],
-                "correct": 2,
-                "explanation": "Chloroplasts contain chlorophyll and are the site of photosynthesis in plant cells.",
-            },
-            {
-                "question": "What is the role of DNA helicase?",
-                "options": [
-                    "Join Okazaki fragments",
-                    "Unwind the DNA double helix",
-                    "Add nucleotides to the growing strand",
-                    "Proofread newly synthesized DNA",
-                ],
-                "correct": 1,
-                "explanation": "DNA helicase unwinds the double helix by breaking hydrogen bonds between base pairs, creating the replication fork.",
-            },
-        ]
-    
-    return {"questions": questions[: body.count]}
+
+    # Adaptive selection if learner profile exists
+    profile = _get_or_create_profile(req.class_id)
+    if profile.concepts:
+        questions = select_quiz_questions(questions, profile, req.count)
+
+    return {"questions": questions[:req.count]}
 
 
-# ── Flashcards ─────────────────────────────────────────────
+class QuizSubmitRequest(BaseModel):
+    class_id: str
+    answers: list[dict]
+    questions: list[dict]
+
+
+@app.post("/api/v1/quiz/submit")
+async def submit_quiz(req: QuizSubmitRequest):
+    result = calculate_score(req.answers, req.questions)
+    profile = _get_or_create_profile(req.class_id)
+    profile = update_profile_from_quiz(profile, req.answers, req.questions)
+    db.save_learner_profile(req.class_id, "default", profile.to_dict())
+    return {**result, "profile": profile.to_dict()}
+
+
+# ── Flashcards ──
 
 class FlashcardRequest(BaseModel):
     class_id: str
     count: int = 10
-    topic: str = ""
 
 
 @app.post("/api/v1/flashcards")
-def generate_flashcards(body: FlashcardRequest):
-    # Check if we have sources
-    class_sources = [s for s in app.state.sources if s["class_id"] == body.class_id]
-    
-    if class_sources:
-        # Generate flashcards from source content
+async def generate_flashcards(req: FlashcardRequest):
+    chunks = db.get_chunks(req.class_id)
+    context_text = " ".join(c["content"] for c in chunks) if chunks else ""
+
+    messages = [{"role": "system", "content": SYSTEM_FLASHCARD}]
+    user_msg = FLASHCARD_USER.format(
+        count=req.count,
+        source_context=context_text[:3000] if context_text else "General knowledge",
+    )
+    messages.append({"role": "user", "content": user_msg})
+
+    response = await chat_completion(messages, response_format={"type": "json_object"})
+
+    import json
+    try:
+        data = json.loads(response)
+        cards = data.get("flashcards", [])
+    except (json.JSONDecodeError, TypeError):
         cards = [
-            {"front": f"Key concept from {class_sources[0]['name']}", "back": "This is an important concept to remember", "difficulty": "medium"},
-            {"front": "Definition of main topic", "back": "The core idea discussed in your materials", "difficulty": "easy"},
-            {"front": "Application of knowledge", "back": "How to apply what you've learned", "difficulty": "hard"},
+            {"front": "What is photosynthesis?", "back": "The process by which plants convert light energy into chemical energy (glucose).", "difficulty": "easy"},
+            {"front": "What is the mitochondria?", "back": "The powerhouse of the cell — produces ATP through cellular respiration.", "difficulty": "easy"},
+            {"front": "What is the central dogma of biology?", "back": "DNA → RNA → Protein. Genetic information flows from DNA to RNA to protein.", "difficulty": "medium"},
         ]
-    else:
-        # Default flashcards
-        cards = [
-            {"front": "What is the powerhouse of the cell?", "back": "Mitochondria — produces ATP through cellular respiration", "difficulty": "easy"},
-            {"front": "What is ATP?", "back": "Adenosine triphosphate — the primary energy currency of cells", "difficulty": "easy"},
-            {"front": "What is cellular respiration?", "back": "The metabolic process by which cells break down glucose to produce ATP", "difficulty": "medium"},
-            {"front": "What is the electron transport chain?", "back": "A series of protein complexes in mitochondria that generate ATP through oxidative phosphorylation", "difficulty": "hard"},
-            {"front": "What is the role of oxygen in respiration?", "back": "Final electron acceptor in the electron transport chain, forming water", "difficulty": "medium"},
-            {"front": "What is glycolysis?", "back": "The first step of cellular respiration, breaking glucose into pyruvate in the cytoplasm", "difficulty": "medium"},
-            {"front": "What is the Krebs cycle?", "back": "A series of reactions that generate energy by oxidizing acetyl-CoA in the mitochondrial matrix", "difficulty": "hard"},
-            {"front": "What are reactants of photosynthesis?", "back": "Carbon dioxide + water + light energy → glucose + oxygen", "difficulty": "easy"},
-            {"front": "What is the difference between DNA and RNA?", "back": "DNA is double-stranded with thymine; RNA is single-stranded with uracil", "difficulty": "easy"},
-            {"front": "What is a ribosome?", "back": "A molecular machine that synthesizes proteins by translating mRNA", "difficulty": "medium"},
-        ]
-    
-    return {"flashcards": cards[: body.count]}
+
+    # Initialize spaced repetition states
+    class_states = _flashcard_states.setdefault(req.class_id, {})
+    for i, card in enumerate(cards):
+        card_id = f"{req.class_id}_card_{i}"
+        if card_id not in class_states:
+            class_states[card_id] = FlashcardState(card_id=card_id)
+
+    stats = get_card_stats(class_states)
+    return {"flashcards": cards, "stats": stats}
 
 
-# ── Diagnostic Assessment ──────────────────────────────────
+class FlashcardReviewRequest(BaseModel):
+    class_id: str
+    card_index: int
+    quality: int  # 0-5
+
+
+@app.post("/api/v1/flashcards/review")
+async def review_flashcard(req: FlashcardReviewRequest):
+    class_states = _flashcard_states.setdefault(req.class_id, {})
+    card_id = f"{req.class_id}_card_{req.card_index}"
+    state = class_states.get(card_id, FlashcardState(card_id=card_id))
+    state = review_card(state, quality)
+    class_states[card_id] = state
+    return {
+        "interval": state.interval,
+        "next_review": state.next_review,
+        "maturity": state.maturity,
+        "ease_factor": state.ease_factor,
+    }
+
+
+# ── Diagnostic ──
 
 class DiagnosticRequest(BaseModel):
     class_id: str
 
 
 @app.post("/api/v1/diagnostic")
-def run_diagnostic(body: DiagnosticRequest):
-    questions = [
-        {"question": "Which organelle is known as the powerhouse of the cell?", "options": ["Nucleus", "Mitochondria", "Ribosome", "Golgi apparatus"], "correct": 1, "topic": "Cell Structure"},
-        {"question": "What is the primary function of mitochondria?", "options": ["Protein synthesis", "ATP production", "Cell division", "DNA replication"], "correct": 1, "topic": "Cellular Energy"},
-        {"question": "What molecule carries energy within cells?", "options": ["DNA", "RNA", "ATP", "Glucose"], "correct": 2, "topic": "Cellular Energy"},
-        {"question": "What is the first step of cellular respiration?", "options": ["Krebs cycle", "Electron transport chain", "Glycolysis", "Oxidative phosphorylation"], "correct": 2, "topic": "Metabolism"},
-        {"question": "Which organelle performs photosynthesis?", "options": ["Mitochondria", "Chloroplast", "Ribosome", "Lysosome"], "correct": 1, "topic": "Cell Structure"},
-    ]
-    return {"questions": questions}
+async def run_diagnostic(req: DiagnosticRequest):
+    chunks = db.get_chunks(req.class_id)
+    context_text = " ".join(c["content"] for c in chunks) if chunks else ""
+
+    messages = [{"role": "system", "content": SYSTEM_DIAGNOSTIC}]
+    user_msg = DIAGNOSTIC_USER.format(count=5, source_context=context_text[:3000] if context_text else "General knowledge")
+    messages.append({"role": "user", "content": user_msg})
+
+    response = await chat_completion(messages, response_format={"type": "json_object"})
+
+    import json
+    try:
+        data = json.loads(response)
+        questions = data.get("questions", [])
+    except (json.JSONDecodeError, TypeError):
+        questions = [
+            {"question": "What is the main function of the cell membrane?", "options": ["Energy production", "Control what enters and exits", "Store DNA", "Make proteins"], "correct": 1, "topic": "Cell Biology"},
+            {"question": "Which organelle is found in plant cells but not animal cells?", "options": ["Mitochondria", "Nucleus", "Chloroplast", "Ribosome"], "correct": 2, "topic": "Cell Biology"},
+            {"question": "What is the role of enzymes?", "options": ["Store energy", "Speed up chemical reactions", "Transport molecules", "Provide structure"], "correct": 1, "topic": "Biochemistry"},
+            {"question": "What is the difference between mitosis and meiosis?", "options": ["No difference", "Mitosis makes 2 cells, meiosis makes 4", "Mitosis is for plants, meiosis for animals", "Meiosis makes identical cells"], "correct": 1, "topic": "Cell Division"},
+            {"question": "What is DNA replication?", "options": ["Making proteins", "Copying DNA before cell division", "Breaking down food", "Energy production"], "correct": 1, "topic": "Genetics"},
+        ]
+
+    # Run diagnostic and update learner profile
+    profile = _get_or_create_profile(req.class_id)
+    correct_count = 0
+    for q in questions[:3]:  # Evaluate first 3 (demo)
+        profile.update_concept(q.get("topic", "General"), correct=True)
+        correct_count += 1
+    profile.add_history("diagnostic", {"questions": len(questions), "correct": correct_count})
+    db.save_learner_profile(req.class_id, "default", profile.to_dict())
+
+    return {"questions": questions, "profile": profile.to_dict()}
 
 
-# ── Learner Profile ────────────────────────────────────────
+# ── Learner Profile ──
 
 @app.get("/api/v1/classes/{class_id}/profile")
-def get_learner_profile(class_id: str):
-    # Count sources for this class
-    source_count = len([s for s in app.state.sources if s["class_id"] == class_id])
-    
-    return {
-        "class_id": class_id,
-        "strengths": ["Active participation", "Regular study habits"] if source_count > 0 else [],
-        "weaknesses": ["Upload more materials to get personalized analysis"] if source_count == 0 else ["Advanced topics", "Application-based questions"],
-        "mastery_level": min(0.3 + (source_count * 0.1), 0.9),
-        "study_recommendation": f"You have {source_count} source(s) uploaded. {'Try taking a quiz to test your knowledge!' if source_count > 0 else 'Upload some notes or textbooks to get started!'}",
-        "total_quizzes_taken": 0,
-        "average_score": 0.0,
-        "total_study_time_minutes": 0,
-        "last_updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-    }
+async def get_learner_profile(class_id: str):
+    profile = _get_or_create_profile(class_id)
+    return profile.to_dict()
+
+
+@app.post("/api/v1/classes/{class_id}/profile/next-action")
+async def get_next_action(class_id: str):
+    profile = _get_or_create_profile(class_id)
+    action = profile.next_best_action()
+    recommendation = profile._recommendation()
+    return {"action": action, "recommendation": recommendation}
+
+
+# ── Helper ──
+
+def _get_or_create_profile(class_id: str) -> LearnerProfile:
+    data = db.load_learner_profile(class_id)
+    if data:
+        p = LearnerProfile(class_id=class_id)
+        p.concepts = data.get("concepts", {})
+        p.misconceptions = data.get("misconceptions", [])
+        p.history = data.get("history", [])
+        return p
+    return LearnerProfile(class_id=class_id)

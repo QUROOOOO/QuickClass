@@ -22,12 +22,13 @@ class Settings(BaseSettings):
     firebase_credentials: str = ""  # path to service-account JSON
     auth_demo_enabled: bool = True
 
-    # agent model — Google ADK / Gemini
-    agent_model: str = ""
-    agent_model_key: str = ""  # env var name holding the API key
-
     # rate limiting (requests per minute per client)
     rate_limit_per_minute: int = 120
+
+    # LLM provider (openai-compatible)
+    openai_api_key: str = ""
+    openai_base_url: str = "https://api.openai.com/v1"
+    openai_model: str = "gpt-4o-mini"
 
     # bounded retries for tool calls
     max_tool_retries: int = 3
